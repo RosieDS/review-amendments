@@ -72,6 +72,7 @@ export default function ContractReview() {
   const [isFirstMessageSent, setIsFirstMessageSent] = useState(false)
   const [animateRiskItems, setAnimateRiskItems] = useState(false)
   const [animateChatHistory, setAnimateChatHistory] = useState(false)
+  const [autoApplyEnabled, setAutoApplyEnabled] = useState(false)
 
   // Refs for document sections
   const section3Ref = useRef<HTMLDivElement>(null)
@@ -156,6 +157,15 @@ export default function ContractReview() {
     if (activeChat) {
       setActiveChat((prev) => {
         if (!prev) return null
+
+        // Check if the completion message has already been added to prevent duplicates
+        const completionMessageExists = prev.messages.some(msg => 
+          msg.type === "ai" && msg.content.includes("We've completed your AI review")
+        )
+
+        if (completionMessageExists) {
+          return prev // Return unchanged if completion message already exists
+        }
 
         return {
           ...prev,
@@ -340,6 +350,20 @@ export default function ContractReview() {
           }
           // If this is the second user message (responding to information request)
           else if (userMessageCount === 2) {
+            // Add the auto-apply question instead of immediately proceeding to "Thank you!"
+            const autoApplyQuestion: Message = {
+              id: (Date.now() + 2).toString(),
+              type: "ai",
+              content: "auto-apply-question", // Special marker for the auto-apply question
+            }
+
+            return {
+              ...prev,
+              messages: [...updatedMessages, autoApplyQuestion],
+            }
+          }
+          // If this is the third user message (responding to auto-apply question)
+          else if (userMessageCount === 3) {
             // Add the final thank you message with loading animation
             const finalMessage: Message = {
               id: (Date.now() + 2).toString(),
@@ -705,6 +729,49 @@ export default function ContractReview() {
         ease: "easeOut",
       },
     }),
+  }
+
+  // Track Changes Components
+  const TrackDeleted = ({ children, onClick }: { children: React.ReactNode, onClick?: () => void }) => (
+    <span 
+      className={`line-through text-red-600 bg-red-50 ${onClick ? 'cursor-pointer hover:bg-red-100' : ''}`}
+      onClick={onClick}
+    >
+      {children}
+    </span>
+  )
+
+  const TrackAdded = ({ children, onClick }: { children: React.ReactNode, onClick?: () => void }) => (
+    <span 
+      className={`bg-green-200 text-green-800 ${onClick ? 'cursor-pointer hover:bg-green-300' : ''}`}
+      onClick={onClick}
+    >
+      {children}
+    </span>
+  )
+
+  const TrackChanges = ({ 
+    original, 
+    suggested, 
+    flagTitle 
+  }: { 
+    original: string, 
+    suggested: string, 
+    flagTitle: string 
+  }) => {
+    const handleClick = () => {
+      const flagItem = [...ipProtectionItems, ...enforceabilityItems].find(item => item.title === flagTitle)
+      if (flagItem) {
+        openChildItemChat(flagItem)
+      }
+    }
+
+    return (
+      <>
+        <TrackDeleted onClick={handleClick}>{original}</TrackDeleted>
+        <TrackAdded onClick={handleClick}>{suggested}</TrackAdded>
+      </>
+    )
   }
 
   return (
@@ -1164,7 +1231,117 @@ export default function ContractReview() {
                               />
                             </div>
                           )
-                        } else if (message.type === "ai") {
+                        }
+
+                        if (message.type === "ai" && message.content === "auto-apply-question") {
+                          return (
+                            <div key={message.id} className="flex flex-col gap-3" data-testid={`auto-apply-question-${message.id}`}>
+                              <div className="flex items-end gap-2">
+                                <div className="w-8 h-8 rounded-full bg-purple-100 flex-shrink-0 overflow-hidden">
+                                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="12" cy="12" r="10" fill="#7C3AED" />
+                                  </svg>
+                                </div>
+                                <div className="rounded-2xl bg-gray-100 px-4 py-3 max-w-[80%]">
+                                  <p className="text-sm text-gray-900 mb-4">
+                                    Would you like to auto-apply Genie's amendment suggestions in track changes?
+                                  </p>
+                                  <div className="flex justify-end gap-2">
+                                    <Button
+                                      size="sm"
+                                      className="h-8 px-4 bg-[#7C3AED] hover:bg-[#6D28D9]"
+                                      onClick={() => {
+                                        // Add user response for "No" and immediately proceed to thank you
+                                        setAutoApplyEnabled(false) // Set auto-apply to false
+                                        setActiveChat((prev) => {
+                                          if (!prev) return null
+                                          const updatedMessages = [
+                                            ...prev.messages,
+                                            {
+                                              id: Date.now().toString(),
+                                              type: "user",
+                                              content: "No",
+                                            },
+                                            {
+                                              id: (Date.now() + 1).toString(),
+                                              type: "ai",
+                                              content:
+                                                "Thank you!\n\nWe're running your tailored AI risk review now. This might take a couple of minutes.",
+                                              isLoading: true,
+                                            },
+                                          ]
+
+                                          // Set processing state to true
+                                          setIsProcessingReview(true)
+
+                                          // After 4 seconds, complete the review
+                                          setTimeout(() => {
+                                            setIsProcessingReview(false)
+                                            startReview()
+                                          }, 4000)
+
+                                          return {
+                                            ...prev,
+                                            messages: updatedMessages,
+                                          }
+                                        })
+                                        setPrompt("")
+                                      }}
+                                    >
+                                      No
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 px-4"
+                                      onClick={() => {
+                                        // Add user response for "Yes" and immediately proceed to thank you
+                                        setAutoApplyEnabled(true) // Set auto-apply to true
+                                        setActiveChat((prev) => {
+                                          if (!prev) return null
+                                          const updatedMessages = [
+                                            ...prev.messages,
+                                            {
+                                              id: Date.now().toString(),
+                                              type: "user",
+                                              content: "Yes",
+                                            },
+                                            {
+                                              id: (Date.now() + 1).toString(),
+                                              type: "ai",
+                                              content:
+                                                "Thank you!\n\nWe're running your tailored AI risk review now. This might take a couple of minutes.",
+                                              isLoading: true,
+                                            },
+                                          ]
+
+                                          // Set processing state to true
+                                          setIsProcessingReview(true)
+
+                                          // After 4 seconds, complete the review
+                                          setTimeout(() => {
+                                            setIsProcessingReview(false)
+                                            startReview()
+                                          }, 4000)
+
+                                          return {
+                                            ...prev,
+                                            messages: updatedMessages,
+                                          }
+                                        })
+                                        setPrompt("")
+                                      }}
+                                    >
+                                      Yes
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        }
+
+                        if (message.type === "ai") {
                           // Handle structured risk content
                           if (message.content === "structured-risk-content") {
                             return (
@@ -1235,6 +1412,55 @@ export default function ContractReview() {
 
                           // Handle placeholder structured content for other risk flags
                           if (message.content === "structured-risk-content-placeholder") {
+                            const getContentForItem = (title: string) => {
+                              switch (title) {
+                                case "Premature Exit: Unilateral Early Termination":
+                                  return {
+                                    description: "Allowing either party to terminate at will undermines the confidentiality period and could expose the Disclosing Party to post-termination misuse.",
+                                    original: "\"…unless terminated earlier by either party with 30 days' notice.\"",
+                                    suggested: "\"…unless terminated earlier by mutual written agreement or by the Disclosing Party with 30 days' notice.\"",
+                                    why: "Prevents the Receiving Party from exiting unilaterally while still in possession of sensitive information, giving the Disclosing Party more control."
+                                  }
+                                case "Untrackable Oral Disclosures":
+                                  return {
+                                    description: "The agreement treats oral and written disclosures equally but provides no way to verify oral information was actually disclosed, making enforcement difficult.",
+                                    original: "\"…whether oral or written…\"",
+                                    suggested: "\"…whether oral or written, provided that oral disclosures are confirmed in writing and marked as confidential within 15 days.\"",
+                                    why: "Introduces a record-keeping requirement that strengthens evidentiary support for oral disclosures."
+                                  }
+                                case "Vague Deadline: Unclear Return Timeline":
+                                  return {
+                                    description: "\"Reasonable period\" is subjective and could delay the return or destruction of sensitive materials.",
+                                    original: "\"…shall return or destroy all Confidential Information within a reasonable period.\"",
+                                    suggested: "\"…shall return or destroy all Confidential Information within 10 business days of termination of this Agreement.\"",
+                                    why: "Creates a clear, enforceable timeline, helping avoid disputes and delays."
+                                  }
+                                case "Jurisdiction Gap: No Legal Venue Set":
+                                  return {
+                                    description: "The remedies clause allows for injunctive relief but does not specify the legal jurisdiction, opening the door to venue disputes.",
+                                    original: "\"The Disclosing Party is entitled to seek injunctive relief…\"",
+                                    suggested: "\"The Disclosing Party is entitled to seek injunctive relief in the courts of England and Wales [or relevant jurisdiction]…\"",
+                                    why: "Establishes where legal disputes will be resolved, ensuring smoother enforcement."
+                                  }
+                                case "Residual Knowledge Ambiguity":
+                                  return {
+                                    description: "Without mentioning residuals, the NDA may be interpreted too strictly, potentially preventing the Receiving Party from using general knowledge acquired during discussions.",
+                                    original: "\"Nothing in this Agreement grants any license or ownership rights…\"",
+                                    suggested: "\"Nothing in this Agreement grants any license or ownership rights, provided that the Receiving Party may retain and use residual knowledge in intangible form that cannot be identified as the Disclosing Party's Confidential Information.\"",
+                                    why: "Clarifies boundaries, balancing IP protection with practical limits on memory and operational use."
+                                  }
+                                default:
+                                  return {
+                                    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+                                    original: "\"Lorem ipsum dolor sit amet, consectetur adipiscing elit...\"",
+                                    suggested: "\"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\"",
+                                    why: "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
+                                  }
+                              }
+                            }
+
+                            const content = getContentForItem(selectedChildItem?.title || "")
+
                             return (
                               <div
                                 key={message.id}
@@ -1254,8 +1480,7 @@ export default function ContractReview() {
                                     </div>
 
                                     <p className="text-sm text-gray-700 mb-4">
-                                      Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor
-                                      incididunt ut labore et dolore magna aliqua.
+                                      {content.description}
                                     </p>
 
                                     <Tabs defaultValue="suggested" className="w-full">
@@ -1271,7 +1496,7 @@ export default function ContractReview() {
                                       <TabsContent value="original" className="mt-3">
                                         <div className="bg-white rounded-md p-3 border">
                                           <p className="text-sm text-gray-700 italic">
-                                            "Lorem ipsum dolor sit amet, consectetur adipiscing elit..."
+                                            {content.original}
                                           </p>
                                         </div>
                                       </TabsContent>
@@ -1279,15 +1504,13 @@ export default function ContractReview() {
                                       <TabsContent value="suggested" className="mt-3">
                                         <div className="bg-white rounded-md p-3 border">
                                           <p className="text-sm text-gray-700 italic mb-3">
-                                            "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
-                                            tempor incididunt ut labore et dolore magna aliqua."
+                                            {content.suggested}
                                           </p>
 
                                           <div className="border-t pt-3">
                                             <p className="text-xs font-medium text-[#7C3AED] mb-1">Why this helps:</p>
                                             <p className="text-xs text-gray-600">
-                                              Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut
-                                              aliquip ex ea commodo consequat.
+                                              {content.why}
                                             </p>
                                           </div>
                                         </div>
@@ -1533,6 +1756,55 @@ export default function ContractReview() {
 
                       // Handle placeholder structured content for other risk flags
                       if (message.content === "structured-risk-content-placeholder") {
+                        const getContentForItem = (title: string) => {
+                          switch (title) {
+                            case "Premature Exit: Unilateral Early Termination":
+                              return {
+                                description: "Allowing either party to terminate at will undermines the confidentiality period and could expose the Disclosing Party to post-termination misuse.",
+                                original: "\"…unless terminated earlier by either party with 30 days' notice.\"",
+                                suggested: "\"…unless terminated earlier by mutual written agreement or by the Disclosing Party with 30 days' notice.\"",
+                                why: "Prevents the Receiving Party from exiting unilaterally while still in possession of sensitive information, giving the Disclosing Party more control."
+                              }
+                            case "Untrackable Oral Disclosures":
+                              return {
+                                description: "The agreement treats oral and written disclosures equally but provides no way to verify oral information was actually disclosed, making enforcement difficult.",
+                                original: "\"…whether oral or written…\"",
+                                suggested: "\"…whether oral or written, provided that oral disclosures are confirmed in writing and marked as confidential within 15 days.\"",
+                                why: "Introduces a record-keeping requirement that strengthens evidentiary support for oral disclosures."
+                              }
+                            case "Vague Deadline: Unclear Return Timeline":
+                              return {
+                                description: "\"Reasonable period\" is subjective and could delay the return or destruction of sensitive materials.",
+                                original: "\"…shall return or destroy all Confidential Information within a reasonable period.\"",
+                                suggested: "\"…shall return or destroy all Confidential Information within 10 business days of termination of this Agreement.\"",
+                                why: "Creates a clear, enforceable timeline, helping avoid disputes and delays."
+                              }
+                            case "Jurisdiction Gap: No Legal Venue Set":
+                              return {
+                                description: "The remedies clause allows for injunctive relief but does not specify the legal jurisdiction, opening the door to venue disputes.",
+                                original: "\"The Disclosing Party is entitled to seek injunctive relief…\"",
+                                suggested: "\"The Disclosing Party is entitled to seek injunctive relief in the courts of England and Wales [or relevant jurisdiction]…\"",
+                                why: "Establishes where legal disputes will be resolved, ensuring smoother enforcement."
+                              }
+                            case "Residual Knowledge Ambiguity":
+                              return {
+                                description: "Without mentioning residuals, the NDA may be interpreted too strictly, potentially preventing the Receiving Party from using general knowledge acquired during discussions.",
+                                original: "\"Nothing in this Agreement grants any license or ownership rights…\"",
+                                suggested: "\"Nothing in this Agreement grants any license or ownership rights, provided that the Receiving Party may retain and use residual knowledge in intangible form that cannot be identified as the Disclosing Party's Confidential Information.\"",
+                                why: "Clarifies boundaries, balancing IP protection with practical limits on memory and operational use."
+                              }
+                            default:
+                              return {
+                                description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+                                original: "\"Lorem ipsum dolor sit amet, consectetur adipiscing elit...\"",
+                                suggested: "\"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\"",
+                                why: "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
+                              }
+                          }
+                        }
+
+                        const content = getContentForItem(selectedChildItem?.title || "")
+
                         return (
                           <div
                             key={message.id}
@@ -1552,8 +1824,7 @@ export default function ContractReview() {
                                 </div>
 
                                 <p className="text-sm text-gray-700 mb-4">
-                                  Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor
-                                  incididunt ut labore et dolore magna aliqua.
+                                  {content.description}
                                 </p>
 
                                 <Tabs defaultValue="suggested" className="w-full">
@@ -1569,7 +1840,7 @@ export default function ContractReview() {
                                   <TabsContent value="original" className="mt-3">
                                     <div className="bg-white rounded-md p-3 border">
                                       <p className="text-sm text-gray-700 italic">
-                                        "Lorem ipsum dolor sit amet, consectetur adipiscing elit..."
+                                        {content.original}
                                       </p>
                                     </div>
                                   </TabsContent>
@@ -1577,15 +1848,13 @@ export default function ContractReview() {
                                   <TabsContent value="suggested" className="mt-3">
                                     <div className="bg-white rounded-md p-3 border">
                                       <p className="text-sm text-gray-700 italic mb-3">
-                                        "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
-                                        incididunt ut labore et dolore magna aliqua."
+                                        {content.suggested}
                                       </p>
 
                                       <div className="border-t pt-3">
                                         <p className="text-xs font-medium text-[#7C3AED] mb-1">Why this helps:</p>
                                         <p className="text-xs text-gray-600">
-                                          Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut
-                                          aliquip ex ea commodo consequat.
+                                          {content.why}
                                         </p>
                                       </div>
                                     </div>
@@ -1690,8 +1959,17 @@ export default function ContractReview() {
               <div ref={backgroundRef}>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Confidential Information</h2>
                 <p className="text-base">
-                  "Confidential Information" includes all non-public, proprietary, or confidential information, whether
-                  oral or written, disclosed by the Disclosing Party to the Receiving Party.
+                  "Confidential Information" includes all non-public, proprietary, or confidential information,{" "}
+                  {autoApplyEnabled && reviewRun ? (
+                    <TrackChanges 
+                      original="whether oral or written"
+                      suggested="whether oral or written, provided that oral disclosures are confirmed in writing and marked as confidential within 15 days"
+                      flagTitle="Untrackable Oral Disclosures"
+                    />
+                  ) : (
+                    "whether oral or written"
+                  )}
+                  , disclosed by the Disclosing Party to the Receiving Party.
                 </p>
               </div>
 
@@ -1707,7 +1985,21 @@ export default function ContractReview() {
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Exclusions</h2>
                 <p className="text-base">Confidential Information does not include information that is:</p>
                 <ul className="list-disc ml-6 mt-2">
-                  <li className="text-base">already known to the Receiving Party,</li>
+                  <li className="text-base">
+                    {autoApplyEnabled && reviewRun ? (
+                      <>
+                        already known to the Receiving Party{" "}
+                        <TrackChanges 
+                          original=""
+                          suggested=", as evidenced by written records created prior to disclosure"
+                          flagTitle="Loophole: Unverified Prior Knowledge Claim"
+                        />
+                        ,
+                      </>
+                    ) : (
+                      "already known to the Receiving Party,"
+                    )}
+                  </li>
                   <li className="text-base">becomes publicly known without breach,</li>
                   <li className="text-base">is disclosed with prior written consent.</li>
                 </ul>
@@ -1716,32 +2008,67 @@ export default function ContractReview() {
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Term</h2>
                 <p className="text-base">
-                  This Agreement shall remain in effect for two (2) years from the Effective Date, unless terminated
-                  earlier by either party with 30 days' notice.
+                  This Agreement shall remain in effect for two (2) years from the Effective Date, {" "}
+                  {autoApplyEnabled && reviewRun ? (
+                    <TrackChanges 
+                      original="unless terminated earlier by either party with 30 days' notice"
+                      suggested="unless terminated earlier by mutual written agreement or by the Disclosing Party with 30 days' notice"
+                      flagTitle="Premature Exit: Unilateral Early Termination"
+                    />
+                  ) : (
+                    "unless terminated earlier by either party with 30 days' notice"
+                  )}
+                  .
                 </p>
               </div>
 
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Return or Destruction</h2>
                 <p className="text-base">
-                  Upon termination, the Receiving Party shall return or destroy all Confidential Information within a
-                  reasonable period.
+                  Upon termination, the Receiving Party shall return or destroy all Confidential Information{" "}
+                  {autoApplyEnabled && reviewRun ? (
+                    <TrackChanges 
+                      original="within a reasonable period"
+                      suggested="within 10 business days of termination of this Agreement"
+                      flagTitle="Vague Deadline: Unclear Return Timeline"
+                    />
+                  ) : (
+                    "within a reasonable period"
+                  )}
+                  .
                 </p>
               </div>
 
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">No License</h2>
                 <p className="text-base">
-                  Nothing in this Agreement grants any license or ownership rights under any intellectual property of
-                  the Disclosing Party.
+                  {autoApplyEnabled && reviewRun ? (
+                    <TrackChanges 
+                      original="Nothing in this Agreement grants any license or ownership rights under any intellectual property of the Disclosing Party"
+                      suggested="Nothing in this Agreement grants any license or ownership rights, provided that the Receiving Party may retain and use residual knowledge in intangible form that cannot be identified as the Disclosing Party's Confidential Information"
+                      flagTitle="Residual Knowledge Ambiguity"
+                    />
+                  ) : (
+                    "Nothing in this Agreement grants any license or ownership rights under any intellectual property of the Disclosing Party"
+                  )}
+                  .
                 </p>
               </div>
 
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Remedies</h2>
                 <p className="text-base">
-                  Any breach may result in irreparable harm. The Disclosing Party is entitled to seek injunctive relief,
-                  in addition to other legal remedies.
+                  Any breach may result in irreparable harm.{" "}
+                  {autoApplyEnabled && reviewRun ? (
+                    <TrackChanges 
+                      original="The Disclosing Party is entitled to seek injunctive relief"
+                      suggested="The Disclosing Party is entitled to seek injunctive relief in the courts of England and Wales [or relevant jurisdiction]"
+                      flagTitle="Jurisdiction Gap: No Legal Venue Set"
+                    />
+                  ) : (
+                    "The Disclosing Party is entitled to seek injunctive relief"
+                  )}
+                  , in addition to other legal remedies.
                 </p>
               </div>
 
