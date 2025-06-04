@@ -73,6 +73,7 @@ export default function ContractReview() {
   const [animateRiskItems, setAnimateRiskItems] = useState(false)
   const [animateChatHistory, setAnimateChatHistory] = useState(false)
   const [autoApplyEnabled, setAutoApplyEnabled] = useState(false)
+  const [autoApplySelection, setAutoApplySelection] = useState<"yes" | "no" | null>(null)
 
   // Refs for document sections
   const section3Ref = useRef<HTMLDivElement>(null)
@@ -670,8 +671,8 @@ export default function ContractReview() {
       severity: "Medium",
     },
     {
-      title: "Residual Knowledge Ambiguity",
-      description: "Add clear definitions for residual knowledge and its handling",
+      title: "Incomplete Confidentiality Lifecycle Controls",
+      description: "Add comprehensive lifecycle management across multiple contract sections",
       severity: "Medium",
     },
   ]
@@ -771,6 +772,34 @@ export default function ContractReview() {
         <TrackDeleted onClick={handleClick}>{original}</TrackDeleted>
         <TrackAdded onClick={handleClick}>{suggested}</TrackAdded>
       </>
+    )
+  }
+
+  // Helper function to format lifecycle content with proper headings and line breaks
+  const formatLifecycleContent = (content: string) => {
+    const sections = content.split('\n\n')
+    return (
+      <div className="space-y-4">
+        {sections.map((section, index) => {
+          if (section.startsWith('**') && section.includes('**')) {
+            const lines = section.split('\n')
+            const title = lines[0].replace(/\*\*/g, '')
+            const body = lines.slice(1).join('\n')
+            return (
+              <div key={index}>
+                <div className="font-semibold text-gray-900 mb-1">{title}</div>
+                <div className="text-sm text-gray-700 italic">{body}</div>
+              </div>
+            )
+          } else {
+            return (
+              <div key={index} className="text-sm text-gray-700 italic">
+                {section}
+              </div>
+            )
+          }
+        })}
+      </div>
     )
   }
 
@@ -1243,96 +1272,107 @@ export default function ContractReview() {
                                   </svg>
                                 </div>
                                 <div className="rounded-2xl bg-gray-100 px-4 py-3 max-w-[80%]">
-                                  <p className="text-sm text-gray-900 mb-4">
-                                    Would you like to auto-apply Genie's amendment suggestions in track changes?
+                                  <p className="text-sm text-gray-900 mb-4 whitespace-pre-line">
+                                    Should I auto-apply suggestions to mitigate any risks in the document?{"\n\n"}I'd apply them in track changes.
                                   </p>
                                   <div className="flex justify-end gap-2">
                                     <Button
                                       size="sm"
-                                      className="h-8 px-4 bg-[#7C3AED] hover:bg-[#6D28D9]"
+                                      className={`h-10 px-4 ${autoApplySelection === "yes" ? "bg-[#7C3AED] hover:bg-[#6D28D9] text-white" : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"}`}
                                       onClick={() => {
-                                        // Add user response for "No" and immediately proceed to thank you
-                                        setAutoApplyEnabled(false) // Set auto-apply to false
-                                        setActiveChat((prev) => {
-                                          if (!prev) return null
-                                          const updatedMessages = [
-                                            ...prev.messages,
-                                            {
-                                              id: Date.now().toString(),
-                                              type: "user",
-                                              content: "No",
-                                            },
-                                            {
-                                              id: (Date.now() + 1).toString(),
-                                              type: "ai",
-                                              content:
-                                                "Thank you!\n\nWe're running your tailored AI risk review now. This might take a couple of minutes.",
-                                              isLoading: true,
-                                            },
-                                          ]
+                                        // Set selection state first
+                                        setAutoApplySelection("yes")
+                                        
+                                        // Add small delay to show selection, then proceed
+                                        setTimeout(() => {
+                                          // Add user response for "Yes" and immediately proceed to thank you
+                                          setAutoApplyEnabled(true) // Set auto-apply to true
+                                          setActiveChat((prev) => {
+                                            if (!prev) return null
+                                            const updatedMessages = [
+                                              ...prev.messages,
+                                              {
+                                                id: Date.now().toString(),
+                                                type: "user",
+                                                content: "Yes",
+                                              },
+                                              {
+                                                id: (Date.now() + 1).toString(),
+                                                type: "ai",
+                                                content:
+                                                  "Thank you!\n\nWe're running your tailored AI risk review now. This might take a couple of minutes.",
+                                                isLoading: true,
+                                              },
+                                            ]
 
-                                          // Set processing state to true
-                                          setIsProcessingReview(true)
+                                            // Set processing state to true
+                                            setIsProcessingReview(true)
 
-                                          // After 4 seconds, complete the review
-                                          setTimeout(() => {
-                                            setIsProcessingReview(false)
-                                            startReview()
-                                          }, 4000)
+                                            // After 4 seconds, complete the review
+                                            setTimeout(() => {
+                                              setIsProcessingReview(false)
+                                              startReview()
+                                            }, 4000)
 
-                                          return {
-                                            ...prev,
-                                            messages: updatedMessages,
-                                          }
-                                        })
-                                        setPrompt("")
-                                      }}
-                                    >
-                                      No
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-8 px-4"
-                                      onClick={() => {
-                                        // Add user response for "Yes" and immediately proceed to thank you
-                                        setAutoApplyEnabled(true) // Set auto-apply to true
-                                        setActiveChat((prev) => {
-                                          if (!prev) return null
-                                          const updatedMessages = [
-                                            ...prev.messages,
-                                            {
-                                              id: Date.now().toString(),
-                                              type: "user",
-                                              content: "Yes",
-                                            },
-                                            {
-                                              id: (Date.now() + 1).toString(),
-                                              type: "ai",
-                                              content:
-                                                "Thank you!\n\nWe're running your tailored AI risk review now. This might take a couple of minutes.",
-                                              isLoading: true,
-                                            },
-                                          ]
-
-                                          // Set processing state to true
-                                          setIsProcessingReview(true)
-
-                                          // After 4 seconds, complete the review
-                                          setTimeout(() => {
-                                            setIsProcessingReview(false)
-                                            startReview()
-                                          }, 4000)
-
-                                          return {
-                                            ...prev,
-                                            messages: updatedMessages,
-                                          }
-                                        })
-                                        setPrompt("")
+                                            return {
+                                              ...prev,
+                                              messages: updatedMessages,
+                                            }
+                                          })
+                                          setPrompt("")
+                                        }, 300)
                                       }}
                                     >
                                       Yes
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      className={`h-10 px-4 ${autoApplySelection === "no" ? "bg-[#7C3AED] hover:bg-[#6D28D9] text-white" : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"}`}
+                                      onClick={() => {
+                                        // Set selection state first
+                                        setAutoApplySelection("no")
+                                        
+                                        // Add small delay to show selection, then proceed
+                                        setTimeout(() => {
+                                          // Add user response for "No" and immediately proceed to thank you
+                                          setAutoApplyEnabled(false) // Set auto-apply to false
+                                          setActiveChat((prev) => {
+                                            if (!prev) return null
+                                            const updatedMessages = [
+                                              ...prev.messages,
+                                              {
+                                                id: Date.now().toString(),
+                                                type: "user",
+                                                content: "No",
+                                              },
+                                              {
+                                                id: (Date.now() + 1).toString(),
+                                                type: "ai",
+                                                content:
+                                                  "Thank you!\n\nWe're running your tailored AI risk review now. This might take a couple of minutes.",
+                                                isLoading: true,
+                                              },
+                                            ]
+
+                                            // Set processing state to true
+                                            setIsProcessingReview(true)
+
+                                            // After 4 seconds, complete the review
+                                            setTimeout(() => {
+                                              setIsProcessingReview(false)
+                                              startReview()
+                                            }, 4000)
+
+                                            return {
+                                              ...prev,
+                                              messages: updatedMessages,
+                                            }
+                                          })
+                                          setPrompt("")
+                                        }, 300)
+                                      }}
+                                    >
+                                      No
                                     </Button>
                                   </div>
                                 </div>
@@ -1442,12 +1482,12 @@ export default function ContractReview() {
                                     suggested: "\"The Disclosing Party is entitled to seek injunctive relief in the courts of England and Wales [or relevant jurisdiction]…\"",
                                     why: "Establishes where legal disputes will be resolved, ensuring smoother enforcement."
                                   }
-                                case "Residual Knowledge Ambiguity":
+                                case "Incomplete Confidentiality Lifecycle Controls":
                                   return {
-                                    description: "Without mentioning residuals, the NDA may be interpreted too strictly, potentially preventing the Receiving Party from using general knowledge acquired during discussions.",
-                                    original: "\"Nothing in this Agreement grants any license or ownership rights…\"",
-                                    suggested: "\"Nothing in this Agreement grants any license or ownership rights, provided that the Receiving Party may retain and use residual knowledge in intangible form that cannot be identified as the Disclosing Party's Confidential Information.\"",
-                                    why: "Clarifies boundaries, balancing IP protection with practical limits on memory and operational use."
+                                    description: "The NDA contains several strong protections for confidential information, but it still lacks unified lifecycle management. There's no explicit link between how confidential information is defined, handled during the agreement, and controlled after termination—leaving the contract potentially vulnerable to misinterpretation or non-compliance.",
+                                    original: "**Clause 2 – Obligations of Confidentiality**\n\"The Receiving Party agrees not to disclose, copy, or use the Confidential Information for any purpose other than evaluating a potential business relationship.\"\n\n**Clause 4 – Term**\n\"This Agreement shall remain in effect for two (2) years from the Effective Date, unless terminated earlier by either party with 30 days' notice.\"\n\n**Clause 5 – Return or Destruction**\n\"Upon termination, the Receiving Party shall return or destroy all Confidential Information within a reasonable period.\"\n\n**No additional lifecycle coordination clause currently exists.**",
+                                    suggested: "**Clause 2 – Obligations of Confidentiality**\nAdd: \"The Receiving Party shall implement reasonable administrative, technical, and physical safeguards to protect Confidential Information from unauthorized use or disclosure.\"\n\n**Clause 4 – Term**\nAdd: \"Notwithstanding any termination of this Agreement, the confidentiality obligations in Clause 2 shall survive for five (5) years from the date of disclosure of the relevant Confidential Information.\"\n\n**Clause 5 – Return or Destruction**\nAdd: \"The Receiving Party shall certify such destruction in writing. Backups containing Confidential Information shall also be deleted where feasible.\"\n\n**New Clause – Lifecycle of Confidential Information**\n\"The Parties agree that confidentiality obligations should be interpreted consistently across the Agreement, including identification, protection, and return of Confidential Information. In the event of ambiguity or conflict between clauses, the interpretation that provides the highest level of protection to the Disclosing Party shall apply.\"",
+                                    why: "These edits close lifecycle gaps by aligning definition, handling, post-termination obligations, and enforcement of confidentiality duties. They prevent information from falling through procedural cracks and reduce risk exposure by coordinating obligations across multiple clauses."
                                   }
                                 default:
                                   return {
@@ -1495,24 +1535,41 @@ export default function ContractReview() {
 
                                       <TabsContent value="original" className="mt-3">
                                         <div className="bg-white rounded-md p-3 border">
-                                          <p className="text-sm text-gray-700 italic">
-                                            {content.original}
-                                          </p>
+                                          {selectedChildItem?.title === "Incomplete Confidentiality Lifecycle Controls" ? (
+                                            formatLifecycleContent(content.original)
+                                          ) : (
+                                            <p className="text-sm text-gray-700 italic">
+                                              {content.original}
+                                            </p>
+                                          )}
                                         </div>
                                       </TabsContent>
 
                                       <TabsContent value="suggested" className="mt-3">
                                         <div className="bg-white rounded-md p-3 border">
-                                          <p className="text-sm text-gray-700 italic mb-3">
-                                            {content.suggested}
-                                          </p>
-
-                                          <div className="border-t pt-3">
-                                            <p className="text-xs font-medium text-[#7C3AED] mb-1">Why this helps:</p>
-                                            <p className="text-xs text-gray-600">
-                                              {content.why}
-                                            </p>
-                                          </div>
+                                          {selectedChildItem?.title === "Incomplete Confidentiality Lifecycle Controls" ? (
+                                            <>
+                                              {formatLifecycleContent(content.suggested)}
+                                              <div className="border-t pt-3 mt-4">
+                                                <p className="text-xs font-medium text-[#7C3AED] mb-1">Why this helps:</p>
+                                                <p className="text-xs text-gray-600">
+                                                  {content.why}
+                                                </p>
+                                              </div>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <p className="text-sm text-gray-700 italic mb-3">
+                                                {content.suggested}
+                                              </p>
+                                              <div className="border-t pt-3">
+                                                <p className="text-xs font-medium text-[#7C3AED] mb-1">Why this helps:</p>
+                                                <p className="text-xs text-gray-600">
+                                                  {content.why}
+                                                </p>
+                                              </div>
+                                            </>
+                                          )}
                                         </div>
                                       </TabsContent>
                                     </Tabs>
@@ -1786,12 +1843,12 @@ export default function ContractReview() {
                                 suggested: "\"The Disclosing Party is entitled to seek injunctive relief in the courts of England and Wales [or relevant jurisdiction]…\"",
                                 why: "Establishes where legal disputes will be resolved, ensuring smoother enforcement."
                               }
-                            case "Residual Knowledge Ambiguity":
+                            case "Incomplete Confidentiality Lifecycle Controls":
                               return {
-                                description: "Without mentioning residuals, the NDA may be interpreted too strictly, potentially preventing the Receiving Party from using general knowledge acquired during discussions.",
-                                original: "\"Nothing in this Agreement grants any license or ownership rights…\"",
-                                suggested: "\"Nothing in this Agreement grants any license or ownership rights, provided that the Receiving Party may retain and use residual knowledge in intangible form that cannot be identified as the Disclosing Party's Confidential Information.\"",
-                                why: "Clarifies boundaries, balancing IP protection with practical limits on memory and operational use."
+                                description: "The NDA contains several strong protections for confidential information, but it still lacks unified lifecycle management. There's no explicit link between how confidential information is defined, handled during the agreement, and controlled after termination—leaving the contract potentially vulnerable to misinterpretation or non-compliance.",
+                                original: "**Clause 2 – Obligations of Confidentiality**\n\"The Receiving Party agrees not to disclose, copy, or use the Confidential Information for any purpose other than evaluating a potential business relationship.\"\n\n**Clause 4 – Term**\n\"This Agreement shall remain in effect for two (2) years from the Effective Date, unless terminated earlier by either party with 30 days' notice.\"\n\n**Clause 5 – Return or Destruction**\n\"Upon termination, the Receiving Party shall return or destroy all Confidential Information within a reasonable period.\"\n\n**No additional lifecycle coordination clause currently exists.**",
+                                suggested: "**Clause 2 – Obligations of Confidentiality**\nAdd: \"The Receiving Party shall implement reasonable administrative, technical, and physical safeguards to protect Confidential Information from unauthorized use or disclosure.\"\n\n**Clause 4 – Term**\nAdd: \"Notwithstanding any termination of this Agreement, the confidentiality obligations in Clause 2 shall survive for five (5) years from the date of disclosure of the relevant Confidential Information.\"\n\n**Clause 5 – Return or Destruction**\nAdd: \"The Receiving Party shall certify such destruction in writing. Backups containing Confidential Information shall also be deleted where feasible.\"\n\n**New Clause – Lifecycle of Confidential Information**\n\"The Parties agree that confidentiality obligations should be interpreted consistently across the Agreement, including identification, protection, and return of Confidential Information. In the event of ambiguity or conflict between clauses, the interpretation that provides the highest level of protection to the Disclosing Party shall apply.\"",
+                                why: "These edits close lifecycle gaps by aligning definition, handling, post-termination obligations, and enforcement of confidentiality duties. They prevent information from falling through procedural cracks and reduce risk exposure by coordinating obligations across multiple clauses."
                               }
                             default:
                               return {
@@ -1839,24 +1896,41 @@ export default function ContractReview() {
 
                                   <TabsContent value="original" className="mt-3">
                                     <div className="bg-white rounded-md p-3 border">
-                                      <p className="text-sm text-gray-700 italic">
-                                        {content.original}
-                                      </p>
+                                      {selectedChildItem?.title === "Incomplete Confidentiality Lifecycle Controls" ? (
+                                        formatLifecycleContent(content.original)
+                                      ) : (
+                                        <p className="text-sm text-gray-700 italic">
+                                          {content.original}
+                                        </p>
+                                      )}
                                     </div>
                                   </TabsContent>
 
                                   <TabsContent value="suggested" className="mt-3">
                                     <div className="bg-white rounded-md p-3 border">
-                                      <p className="text-sm text-gray-700 italic mb-3">
-                                        {content.suggested}
-                                      </p>
-
-                                      <div className="border-t pt-3">
-                                        <p className="text-xs font-medium text-[#7C3AED] mb-1">Why this helps:</p>
-                                        <p className="text-xs text-gray-600">
-                                          {content.why}
-                                        </p>
-                                      </div>
+                                      {selectedChildItem?.title === "Incomplete Confidentiality Lifecycle Controls" ? (
+                                        <>
+                                          {formatLifecycleContent(content.suggested)}
+                                          <div className="border-t pt-3 mt-4">
+                                            <p className="text-xs font-medium text-[#7C3AED] mb-1">Why this helps:</p>
+                                            <p className="text-xs text-gray-600">
+                                              {content.why}
+                                            </p>
+                                          </div>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <p className="text-sm text-gray-700 italic mb-3">
+                                            {content.suggested}
+                                          </p>
+                                          <div className="border-t pt-3">
+                                            <p className="text-xs font-medium text-[#7C3AED] mb-1">Why this helps:</p>
+                                            <p className="text-xs text-gray-600">
+                                              {content.why}
+                                            </p>
+                                          </div>
+                                        </>
+                                      )}
                                     </div>
                                   </TabsContent>
                                 </Tabs>
@@ -1959,15 +2033,15 @@ export default function ContractReview() {
               <div ref={backgroundRef}>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Confidential Information</h2>
                 <p className="text-base">
-                  "Confidential Information" includes all non-public, proprietary, or confidential information,{" "}
+                  "Confidential Information" includes all non-public, proprietary, or confidential information, whether oral or written{" "}
                   {autoApplyEnabled && reviewRun ? (
                     <TrackChanges 
-                      original="whether oral or written"
-                      suggested="whether oral or written, provided that oral disclosures are confirmed in writing and marked as confidential within 15 days"
+                      original=""
+                      suggested=", provided that oral disclosures are confirmed in writing and marked as confidential within 15 days"
                       flagTitle="Untrackable Oral Disclosures"
                     />
                   ) : (
-                    "whether oral or written"
+                    ""
                   )}
                   , disclosed by the Disclosing Party to the Receiving Party.
                 </p>
@@ -1977,7 +2051,17 @@ export default function ContractReview() {
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Obligations of Confidentiality</h2>
                 <p className="text-base">
                   The Receiving Party agrees not to disclose, copy, or use the Confidential Information for any purpose
-                  other than evaluating a potential business relationship.
+                  other than evaluating a potential business relationship{" "}
+                  {autoApplyEnabled && reviewRun ? (
+                    <TrackChanges 
+                      original=""
+                      suggested=". The Receiving Party shall implement reasonable administrative, technical, and physical safeguards to protect Confidential Information from unauthorized use or disclosure"
+                      flagTitle="Incomplete Confidentiality Lifecycle Controls"
+                    />
+                  ) : (
+                    ""
+                  )}
+                  .
                 </p>
               </div>
 
@@ -2008,15 +2092,25 @@ export default function ContractReview() {
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Term</h2>
                 <p className="text-base">
-                  This Agreement shall remain in effect for two (2) years from the Effective Date, {" "}
+                  This Agreement shall remain in effect for two (2) years from the Effective Date, unless terminated earlier by{" "}
                   {autoApplyEnabled && reviewRun ? (
                     <TrackChanges 
-                      original="unless terminated earlier by either party with 30 days' notice"
-                      suggested="unless terminated earlier by mutual written agreement or by the Disclosing Party with 30 days' notice"
+                      original="either party"
+                      suggested="mutual written agreement or by the Disclosing Party"
                       flagTitle="Premature Exit: Unilateral Early Termination"
                     />
                   ) : (
-                    "unless terminated earlier by either party with 30 days' notice"
+                    "either party"
+                  )}
+                  {" "}with 30 days' notice{" "}
+                  {autoApplyEnabled && reviewRun ? (
+                    <TrackChanges 
+                      original=""
+                      suggested=". Notwithstanding any termination of this Agreement, the confidentiality obligations in Clause 2 shall survive for five (5) years from the date of disclosure of the relevant Confidential Information"
+                      flagTitle="Incomplete Confidentiality Lifecycle Controls"
+                    />
+                  ) : (
+                    ""
                   )}
                   .
                 </p>
@@ -2025,15 +2119,25 @@ export default function ContractReview() {
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Return or Destruction</h2>
                 <p className="text-base">
-                  Upon termination, the Receiving Party shall return or destroy all Confidential Information{" "}
+                  Upon termination, the Receiving Party shall return or destroy all Confidential Information within{" "}
                   {autoApplyEnabled && reviewRun ? (
                     <TrackChanges 
-                      original="within a reasonable period"
-                      suggested="within 10 business days of termination of this Agreement"
+                      original="a reasonable period"
+                      suggested="10 business days of termination of this Agreement"
                       flagTitle="Vague Deadline: Unclear Return Timeline"
                     />
                   ) : (
-                    "within a reasonable period"
+                    "a reasonable period"
+                  )}
+                  {" "}
+                  {autoApplyEnabled && reviewRun ? (
+                    <TrackChanges 
+                      original=""
+                      suggested=". The Receiving Party shall certify such destruction in writing. Backups containing Confidential Information shall also be deleted where feasible"
+                      flagTitle="Incomplete Confidentiality Lifecycle Controls"
+                    />
+                  ) : (
+                    ""
                   )}
                   .
                 </p>
@@ -2042,31 +2146,35 @@ export default function ContractReview() {
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">No License</h2>
                 <p className="text-base">
-                  {autoApplyEnabled && reviewRun ? (
-                    <TrackChanges 
-                      original="Nothing in this Agreement grants any license or ownership rights under any intellectual property of the Disclosing Party"
-                      suggested="Nothing in this Agreement grants any license or ownership rights, provided that the Receiving Party may retain and use residual knowledge in intangible form that cannot be identified as the Disclosing Party's Confidential Information"
-                      flagTitle="Residual Knowledge Ambiguity"
-                    />
-                  ) : (
-                    "Nothing in this Agreement grants any license or ownership rights under any intellectual property of the Disclosing Party"
-                  )}
-                  .
+                  Nothing in this Agreement grants any license or ownership rights under any intellectual property of the Disclosing Party.
                 </p>
               </div>
+
+              {autoApplyEnabled && reviewRun && (
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">Lifecycle of Confidential Information</h2>
+                  <p className="text-base">
+                    <TrackChanges 
+                      original=""
+                      suggested="The Parties agree that confidentiality obligations should be interpreted consistently across the Agreement, including identification, protection, and return of Confidential Information. In the event of ambiguity or conflict between clauses, the interpretation that provides the highest level of protection to the Disclosing Party shall apply."
+                      flagTitle="Incomplete Confidentiality Lifecycle Controls"
+                    />
+                  </p>
+                </div>
+              )}
 
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Remedies</h2>
                 <p className="text-base">
-                  Any breach may result in irreparable harm.{" "}
+                  Any breach may result in irreparable harm. The Disclosing Party is entitled to seek injunctive relief{" "}
                   {autoApplyEnabled && reviewRun ? (
                     <TrackChanges 
-                      original="The Disclosing Party is entitled to seek injunctive relief"
-                      suggested="The Disclosing Party is entitled to seek injunctive relief in the courts of England and Wales [or relevant jurisdiction]"
+                      original=""
+                      suggested="in the courts of England and Wales [or relevant jurisdiction]"
                       flagTitle="Jurisdiction Gap: No Legal Venue Set"
                     />
                   ) : (
-                    "The Disclosing Party is entitled to seek injunctive relief"
+                    ""
                   )}
                   , in addition to other legal remedies.
                 </p>
