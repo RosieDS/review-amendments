@@ -78,6 +78,9 @@ export default function ContractReview() {
   const [acceptedFlags, setAcceptedFlags] = useState<string[]>([])
   const [purpleUnderlines, setPurpleUnderlines] = useState<Record<string, boolean>>({})
 
+  // Edit navigation state
+  const [currentEditIndex, setCurrentEditIndex] = useState<Record<string, number>>({})
+
   // Refs for document sections
   const section3Ref = useRef<HTMLDivElement>(null)
   const partiesRef = useRef<HTMLDivElement>(null)
@@ -450,6 +453,9 @@ export default function ContractReview() {
 
   const openChildItemChat = (item: ChildItem) => {
     setSelectedChildItem(item)
+
+    // Initialize edit navigation index
+    setCurrentEditIndex(prev => ({ ...prev, [item.title]: 0 }))
 
     // Create initial messages if they don't exist yet
     if (!childItemMessages[item.title]) {
@@ -920,6 +926,74 @@ export default function ContractReview() {
     }
   }
 
+  // Function to count track changes per flag
+  const getTrackChangesForFlag = (flagTitle: string) => {
+    const changes = []
+    
+    switch (flagTitle) {
+      case "Loophole: Unverified Prior Knowledge Claim":
+        changes.push({ ref: section3Ref, description: "Prior knowledge evidence requirement" })
+        break
+      case "Premature Exit: Unilateral Early Termination":
+        changes.push({ ref: termRef, description: "Termination rights restriction" })
+        break
+      case "Untrackable Oral Disclosures":
+        changes.push({ ref: backgroundRef, description: "Oral disclosure confirmation requirement" })
+        break
+      case "Vague Deadline: Unclear Return Timeline":
+        changes.push({ ref: returnDestructionRef, description: "Specific return timeline" })
+        break
+      case "Jurisdiction Gap: No Legal Venue Set":
+        changes.push({ ref: remediesRef, description: "Legal jurisdiction specification" })
+        break
+      case "Incomplete Confidentiality Lifecycle Controls":
+        changes.push(
+          { ref: agreedTermsRef, description: "Safeguards requirement" },
+          { ref: termRef, description: "Survival clause" },
+          { ref: returnDestructionRef, description: "Certification and backup requirements" },
+          { ref: null, description: "New lifecycle clause" } // This will need special handling
+        )
+        break
+    }
+    
+    return changes
+  }
+
+  // Function to navigate to specific edit
+  const navigateToEdit = (flagTitle: string, editIndex: number) => {
+    const changes = getTrackChangesForFlag(flagTitle)
+    if (editIndex >= 0 && editIndex < changes.length) {
+      setCurrentEditIndex(prev => ({ ...prev, [flagTitle]: editIndex }))
+      
+      const change = changes[editIndex]
+      if (change.ref?.current) {
+        setTimeout(() => {
+          change.ref.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+        }, 100)
+      } else if (change.description === "New lifecycle clause") {
+        // Handle the lifecycle clause which is conditionally rendered
+        setTimeout(() => {
+          const allHeadings = document.querySelectorAll('h2')
+          const lifecycleHeading = Array.from(allHeadings).find(h => h.textContent?.includes("Lifecycle of Confidential Information"))
+          if (lifecycleHeading) {
+            lifecycleHeading.scrollIntoView({ behavior: "smooth", block: "start" })
+          }
+        }, 100)
+      }
+    }
+  }
+
+  // Function to handle accept all edits for a specific flag
+  const handleAcceptAllForFlag = (flagTitle: string) => {
+    handleAcceptFlag(flagTitle)
+  }
+
+  // Function to handle reject all edits for a specific flag
+  const handleRejectAllForFlag = (flagTitle: string) => {
+    setPreviewedFlags(prev => prev.filter(flag => flag !== flagTitle))
+    setAcceptedFlags(prev => prev.filter(flag => flag !== flagTitle))
+  }
+
   return (
     <div className="flex min-h-screen bg-[#F9F9F9]" data-testid="contract-review-container">
       {/* Left Panel - Fixed width for prompt and history */}
@@ -1172,7 +1246,7 @@ export default function ContractReview() {
                 <g clipPath="url(#clip0_4342_62730)">
                   <path
                     d="M12.3154 3.60101C12.3154 4.15294 11.8918 4.61736 11.3344 4.75198C11.2303 4.7789 11.1188 4.79236 11.0073 4.79236C10.8958 4.79236 10.7844 4.7789 10.6803 4.75198C10.1154 4.61736 9.69922 4.15294 9.69922 3.60101C9.69922 2.9414 10.2938 2.40967 11.0148 2.40967C11.7357 2.40967 12.3154 2.94813 12.3154 3.60101Z"
-                    fill="#3D1152"
+                      fill="#3D1152"
                   />
                   <path d="M18.4172 34.9329H3.58203L4.54081 32.9541H17.4584L18.4172 34.9329Z" fill="#3D1152" />
                   <path
@@ -2172,6 +2246,76 @@ export default function ContractReview() {
                   })}
                 </div>
               </ScrollArea>
+
+              {/* Edit Navigation Header - only show if there are unaccepted track changes */}
+              {selectedChildItem && (autoApplyEnabled || previewedFlags.includes(selectedChildItem.title)) && !acceptedFlags.includes(selectedChildItem.title) && (
+                <div className="border-t border-gray-200 bg-gray-50 px-4 py-3">
+                  {(() => {
+                    const changes = getTrackChangesForFlag(selectedChildItem.title)
+                    const currentIndex = currentEditIndex[selectedChildItem.title] || 0
+                    
+                    return (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm text-gray-600">
+                            AI edits from this chat:
+                          </span>
+                          
+                          {changes.length === 1 ? (
+                            <span className="text-sm font-medium text-gray-900">1</span>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  const newIndex = currentIndex > 0 ? currentIndex - 1 : changes.length - 1
+                                  navigateToEdit(selectedChildItem.title, newIndex)
+                                }}
+                                className="p-1 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded"
+                                disabled={changes.length <= 1}
+                              >
+                                <ChevronLeft className="h-4 w-4" />
+                              </button>
+                              
+                              <span className="text-sm font-medium text-gray-900 min-w-[40px] text-center">
+                                {currentIndex + 1}/{changes.length}
+                              </span>
+                              
+                              <button
+                                onClick={() => {
+                                  const newIndex = currentIndex < changes.length - 1 ? currentIndex + 1 : 0
+                                  navigateToEdit(selectedChildItem.title, newIndex)
+                                }}
+                                className="p-1 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded"
+                                disabled={changes.length <= 1}
+                              >
+                                <ChevronRight className="h-4 w-4" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-7 px-3 border-red-300 text-red-600 hover:bg-red-50"
+                            onClick={() => handleRejectAllForFlag(selectedChildItem.title)}
+                          >
+                            Reject all
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="text-xs h-7 px-3 bg-green-600 hover:bg-green-700 text-white"
+                            onClick={() => handleAcceptAllForFlag(selectedChildItem.title)}
+                          >
+                            Accept all
+                          </Button>
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
 
               <div className="border-t border-gray-200 p-4" data-testid="risk-chat-input-container">
                 <div className="relative">
