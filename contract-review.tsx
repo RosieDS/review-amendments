@@ -74,12 +74,18 @@ export default function ContractReview() {
   const [animateChatHistory, setAnimateChatHistory] = useState(false)
   const [autoApplyEnabled, setAutoApplyEnabled] = useState(false)
   const [autoApplySelection, setAutoApplySelection] = useState<"yes" | "no" | null>(null)
+  const [previewedFlags, setPreviewedFlags] = useState<string[]>([])
+  const [acceptedFlags, setAcceptedFlags] = useState<string[]>([])
+  const [purpleUnderlines, setPurpleUnderlines] = useState<Record<string, boolean>>({})
 
   // Refs for document sections
   const section3Ref = useRef<HTMLDivElement>(null)
   const partiesRef = useRef<HTMLDivElement>(null)
   const backgroundRef = useRef<HTMLDivElement>(null)
   const agreedTermsRef = useRef<HTMLDivElement>(null)
+  const termRef = useRef<HTMLDivElement>(null)
+  const returnDestructionRef = useRef<HTMLDivElement>(null)
+  const remediesRef = useRef<HTMLDivElement>(null)
   const interpretationRef = useRef<HTMLDivElement>(null)
 
   // Ref for chat scroll area
@@ -472,11 +478,32 @@ export default function ContractReview() {
       }
     }
 
-    // Auto-scroll to the relevant section if scrollToClause is enabled or if it's the reverse engineering item
-    if ((scrollToClause || item.title === "No limits on reverse engineering") && item.scrollToSection) {
-      if (item.scrollToSection === "section3" && section3Ref.current) {
-        section3Ref.current.scrollIntoView({ behavior: "smooth", block: "start" })
-      }
+    // Auto-scroll to the relevant section based on scrollToSection property
+    if (item.scrollToSection) {
+      setTimeout(() => {
+        switch (item.scrollToSection) {
+          case "section3":
+            section3Ref.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+            break
+          case "background":
+            backgroundRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+            break
+          case "agreedTerms":
+            agreedTermsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+            break
+          case "term":
+            termRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+            break
+          case "returnDestruction":
+            returnDestructionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+            break
+          case "remedies":
+            remediesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+            break
+          default:
+            break
+        }
+      }, 100) // Small delay to ensure the chat opens before scrolling
     }
 
     // Close the active chat if one is open
@@ -651,11 +678,13 @@ export default function ContractReview() {
       description:
         "This NDA does not clearly define ownership of intellectual property, leaving room for disputes over rights to derivatives, improvements, or modifications based on disclosed information. Without clarification, the Receiving Party could claim ownership over developments inspired by Confidential Information. \n\nAdd a section to this agreement specifying ownership of IP.",
       severity: "High",
+      scrollToSection: "term",
     },
     {
       title: "Untrackable Oral Disclosures",
       description: "Include definition and ownership terms for derivative works",
       severity: "High",
+      scrollToSection: "background",
     },
   ]
 
@@ -664,16 +693,19 @@ export default function ContractReview() {
       title: "Vague Deadline: Unclear Return Timeline",
       description: "Add specific language about irreparable harm and right to injunction",
       severity: "Medium",
+      scrollToSection: "returnDestruction",
     },
     {
       title: "Jurisdiction Gap: No Legal Venue Set",
       description: "Specify exact duration of confidentiality obligations post-termination",
       severity: "Medium",
+      scrollToSection: "remedies",
     },
     {
       title: "Incomplete Confidentiality Lifecycle Controls",
       description: "Add comprehensive lifecycle management across multiple contract sections",
       severity: "Medium",
+      scrollToSection: "agreedTerms",
     },
   ]
 
@@ -751,6 +783,14 @@ export default function ContractReview() {
     </span>
   )
 
+  const PurpleUnderline = ({ children, isActive }: { children: React.ReactNode, isActive: boolean }) => (
+    <span 
+      className={`${isActive ? 'border-b-2 border-purple-500 bg-purple-50' : ''} transition-all duration-300`}
+    >
+      {children}
+    </span>
+  )
+
   const TrackChanges = ({ 
     original, 
     suggested, 
@@ -767,17 +807,60 @@ export default function ContractReview() {
       }
     }
 
-    return (
-      <>
-        <TrackDeleted onClick={handleClick}>{original}</TrackDeleted>
-        <TrackAdded onClick={handleClick}>{suggested}</TrackAdded>
-      </>
-    )
+    // Show track changes if auto-apply is enabled OR if this specific flag is previewed
+    const showTrackChanges = (autoApplyEnabled && reviewRun) || previewedFlags.includes(flagTitle)
+    
+    // Show accepted changes with purple underline if this flag is accepted
+    const isAccepted = acceptedFlags.includes(flagTitle)
+    const showPurpleUnderline = purpleUnderlines[flagTitle] && isAccepted
+
+    if (isAccepted) {
+      return (
+        <PurpleUnderline isActive={showPurpleUnderline}>
+          {suggested}
+        </PurpleUnderline>
+      )
+    }
+
+    if (showTrackChanges) {
+      return (
+        <>
+          <TrackDeleted onClick={handleClick}>{original}</TrackDeleted>
+          <TrackAdded onClick={handleClick}>{suggested}</TrackAdded>
+        </>
+      )
+    }
+
+    // Default: show original text
+    return <>{original}</>
   }
 
   // Helper function to format lifecycle content with proper headings and line breaks
   const formatLifecycleContent = (content: string) => {
     const sections = content.split('\n\n')
+    
+    // Function to handle clause title clicks and scroll to relevant sections
+    const handleClauseClick = (clauseTitle: string) => {
+      setTimeout(() => {
+        if (clauseTitle.includes("Clause 2") || clauseTitle.includes("Obligations of Confidentiality")) {
+          agreedTermsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+        } else if (clauseTitle.includes("Clause 4") || clauseTitle.includes("Term")) {
+          termRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+        } else if (clauseTitle.includes("Clause 5") || clauseTitle.includes("Return or Destruction")) {
+          returnDestructionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+        } else if (clauseTitle.includes("Remedies")) {
+          remediesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+        } else if (clauseTitle.includes("Lifecycle of Confidential Information")) {
+          // Scroll to the lifecycle section if it exists in the document
+          const allHeadings = document.querySelectorAll('h2')
+          const lifecycleHeading = Array.from(allHeadings).find(h => h.textContent?.includes("Lifecycle of Confidential Information"))
+          if (lifecycleHeading) {
+            lifecycleHeading.scrollIntoView({ behavior: "smooth", block: "start" })
+          }
+        }
+      }, 100)
+    }
+
     return (
       <div className="space-y-4">
         {sections.map((section, index) => {
@@ -785,9 +868,22 @@ export default function ContractReview() {
             const lines = section.split('\n')
             const title = lines[0].replace(/\*\*/g, '')
             const body = lines.slice(1).join('\n')
+            
+            // Check if this is a clause title that should be clickable
+            const isClauseTitle = title.includes("Clause") || title.includes("New Clause")
+            
             return (
               <div key={index}>
-                <div className="font-semibold text-gray-900 mb-1">{title}</div>
+                {isClauseTitle ? (
+                  <button
+                    onClick={() => handleClauseClick(title)}
+                    className="font-semibold text-blue-800 underline hover:text-blue-900 mb-1 text-left cursor-pointer"
+                  >
+                    {title}
+                  </button>
+                ) : (
+                  <div className="font-semibold text-gray-900 mb-1">{title}</div>
+                )}
                 <div className="text-sm text-gray-700 italic">{body}</div>
               </div>
             )
@@ -801,6 +897,27 @@ export default function ContractReview() {
         })}
       </div>
     )
+  }
+
+  // Functions to handle individual flag actions
+  const handlePreviewFlag = (flagTitle: string) => {
+    if (!previewedFlags.includes(flagTitle)) {
+      setPreviewedFlags(prev => [...prev, flagTitle])
+    }
+  }
+
+  const handleAcceptFlag = (flagTitle: string) => {
+    if (!acceptedFlags.includes(flagTitle)) {
+      setAcceptedFlags(prev => [...prev, flagTitle])
+      
+      // Add purple underline animation
+      setPurpleUnderlines(prev => ({ ...prev, [flagTitle]: true }))
+      
+      // Remove purple underline after 3 seconds
+      setTimeout(() => {
+        setPurpleUnderlines(prev => ({ ...prev, [flagTitle]: false }))
+      }, 3000)
+    }
   }
 
   return (
@@ -1556,6 +1673,29 @@ export default function ContractReview() {
                                                   {content.why}
                                                 </p>
                                               </div>
+                                              {!autoApplyEnabled && reviewRun && (
+                                                <div className="border-t pt-3 mt-4">
+                                                  <div className="flex gap-2">
+                                                    <Button
+                                                      size="sm"
+                                                      className="flex-1 text-xs h-8 bg-[#7C3AED] hover:bg-[#6D28D9]"
+                                                      onClick={() => handleAcceptFlag(selectedChildItem.title)}
+                                                      disabled={acceptedFlags.includes(selectedChildItem.title)}
+                                                    >
+                                                      {acceptedFlags.includes(selectedChildItem.title) ? "Accepted" : "Accept change"}
+                                                    </Button>
+                                                    <Button
+                                                      size="sm"
+                                                      variant="outline"
+                                                      className="flex-1 text-xs h-8 border-[#7C3AED] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white"
+                                                      onClick={() => handlePreviewFlag(selectedChildItem.title)}
+                                                      disabled={previewedFlags.includes(selectedChildItem.title) || acceptedFlags.includes(selectedChildItem.title)}
+                                                    >
+                                                      {previewedFlags.includes(selectedChildItem.title) ? "Showing in doc" : "Show in track changes"}
+                                                    </Button>
+                                                  </div>
+                                                </div>
+                                              )}
                                             </>
                                           ) : (
                                             <>
@@ -1568,6 +1708,29 @@ export default function ContractReview() {
                                                   {content.why}
                                                 </p>
                                               </div>
+                                              {!autoApplyEnabled && reviewRun && (
+                                                <div className="border-t pt-3 mt-3">
+                                                  <div className="flex gap-2">
+                                                    <Button
+                                                      size="sm"
+                                                      className="flex-1 text-xs h-8 bg-[#7C3AED] hover:bg-[#6D28D9]"
+                                                      onClick={() => handleAcceptFlag(selectedChildItem.title)}
+                                                      disabled={acceptedFlags.includes(selectedChildItem.title)}
+                                                    >
+                                                      {acceptedFlags.includes(selectedChildItem.title) ? "Accepted" : "Accept change"}
+                                                    </Button>
+                                                    <Button
+                                                      size="sm"
+                                                      variant="outline"
+                                                      className="flex-1 text-xs h-8 border-[#7C3AED] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white"
+                                                      onClick={() => handlePreviewFlag(selectedChildItem.title)}
+                                                      disabled={previewedFlags.includes(selectedChildItem.title) || acceptedFlags.includes(selectedChildItem.title)}
+                                                    >
+                                                      {previewedFlags.includes(selectedChildItem.title) ? "Showing in doc" : "Show in track changes"}
+                                                    </Button>
+                                                  </div>
+                                                </div>
+                                              )}
                                             </>
                                           )}
                                         </div>
@@ -1917,6 +2080,29 @@ export default function ContractReview() {
                                               {content.why}
                                             </p>
                                           </div>
+                                          {!autoApplyEnabled && reviewRun && (
+                                            <div className="border-t pt-3 mt-4">
+                                              <div className="flex gap-2">
+                                                <Button
+                                                  size="sm"
+                                                  className="flex-1 text-xs h-8 bg-[#7C3AED] hover:bg-[#6D28D9]"
+                                                  onClick={() => handleAcceptFlag(selectedChildItem.title)}
+                                                  disabled={acceptedFlags.includes(selectedChildItem.title)}
+                                                >
+                                                  {acceptedFlags.includes(selectedChildItem.title) ? "Accepted" : "Accept change"}
+                                                </Button>
+                                                <Button
+                                                  size="sm"
+                                                  variant="outline"
+                                                  className="flex-1 text-xs h-8 border-[#7C3AED] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white"
+                                                  onClick={() => handlePreviewFlag(selectedChildItem.title)}
+                                                  disabled={previewedFlags.includes(selectedChildItem.title) || acceptedFlags.includes(selectedChildItem.title)}
+                                                >
+                                                  {previewedFlags.includes(selectedChildItem.title) ? "Showing in doc" : "Show in track changes"}
+                                                </Button>
+                                              </div>
+                                            </div>
+                                          )}
                                         </>
                                       ) : (
                                         <>
@@ -1929,6 +2115,29 @@ export default function ContractReview() {
                                               {content.why}
                                             </p>
                                           </div>
+                                          {!autoApplyEnabled && reviewRun && (
+                                            <div className="border-t pt-3 mt-3">
+                                              <div className="flex gap-2">
+                                                <Button
+                                                  size="sm"
+                                                  className="flex-1 text-xs h-8 bg-[#7C3AED] hover:bg-[#6D28D9]"
+                                                  onClick={() => handleAcceptFlag(selectedChildItem.title)}
+                                                  disabled={acceptedFlags.includes(selectedChildItem.title)}
+                                                >
+                                                  {acceptedFlags.includes(selectedChildItem.title) ? "Accepted" : "Accept change"}
+                                                </Button>
+                                                <Button
+                                                  size="sm"
+                                                  variant="outline"
+                                                  className="flex-1 text-xs h-8 border-[#7C3AED] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white"
+                                                  onClick={() => handlePreviewFlag(selectedChildItem.title)}
+                                                  disabled={previewedFlags.includes(selectedChildItem.title) || acceptedFlags.includes(selectedChildItem.title)}
+                                                >
+                                                  {previewedFlags.includes(selectedChildItem.title) ? "Showing in doc" : "Show in track changes"}
+                                                </Button>
+                                              </div>
+                                            </div>
+                                          )}
                                         </>
                                       )}
                                     </div>
@@ -2034,15 +2243,11 @@ export default function ContractReview() {
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Confidential Information</h2>
                 <p className="text-base">
                   "Confidential Information" includes all non-public, proprietary, or confidential information, whether oral or written{" "}
-                  {autoApplyEnabled && reviewRun ? (
-                    <TrackChanges 
-                      original=""
-                      suggested=", provided that oral disclosures are confirmed in writing and marked as confidential within 15 days"
-                      flagTitle="Untrackable Oral Disclosures"
-                    />
-                  ) : (
-                    ""
-                  )}
+                  <TrackChanges 
+                    original=""
+                    suggested=", provided that oral disclosures are confirmed in writing and marked as confidential within 15 days"
+                    flagTitle="Untrackable Oral Disclosures"
+                  />
                   , disclosed by the Disclosing Party to the Receiving Party.
                 </p>
               </div>
@@ -2052,15 +2257,11 @@ export default function ContractReview() {
                 <p className="text-base">
                   The Receiving Party agrees not to disclose, copy, or use the Confidential Information for any purpose
                   other than evaluating a potential business relationship{" "}
-                  {autoApplyEnabled && reviewRun ? (
-                    <TrackChanges 
-                      original=""
-                      suggested=". The Receiving Party shall implement reasonable administrative, technical, and physical safeguards to protect Confidential Information from unauthorized use or disclosure"
-                      flagTitle="Incomplete Confidentiality Lifecycle Controls"
-                    />
-                  ) : (
-                    ""
-                  )}
+                  <TrackChanges 
+                    original=""
+                    suggested=". The Receiving Party shall implement reasonable administrative, technical, and physical safeguards to protect Confidential Information from unauthorized use or disclosure"
+                    flagTitle="Incomplete Confidentiality Lifecycle Controls"
+                  />
                   .
                 </p>
               </div>
@@ -2070,75 +2271,53 @@ export default function ContractReview() {
                 <p className="text-base">Confidential Information does not include information that is:</p>
                 <ul className="list-disc ml-6 mt-2">
                   <li className="text-base">
-                    {autoApplyEnabled && reviewRun ? (
-                      <>
-                        already known to the Receiving Party{" "}
-                        <TrackChanges 
-                          original=""
-                          suggested=", as evidenced by written records created prior to disclosure"
-                          flagTitle="Loophole: Unverified Prior Knowledge Claim"
-                        />
-                        ,
-                      </>
-                    ) : (
-                      "already known to the Receiving Party,"
-                    )}
+                    already known to the Receiving Party{" "}
+                    <TrackChanges 
+                      original=""
+                      suggested=", as evidenced by written records created prior to disclosure"
+                      flagTitle="Loophole: Unverified Prior Knowledge Claim"
+                    />
+                    ,
                   </li>
                   <li className="text-base">becomes publicly known without breach,</li>
                   <li className="text-base">is disclosed with prior written consent.</li>
                 </ul>
               </div>
 
-              <div>
+              <div ref={termRef}>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Term</h2>
                 <p className="text-base">
                   This Agreement shall remain in effect for two (2) years from the Effective Date, unless terminated earlier by{" "}
-                  {autoApplyEnabled && reviewRun ? (
-                    <TrackChanges 
-                      original="either party"
-                      suggested="mutual written agreement or by the Disclosing Party"
-                      flagTitle="Premature Exit: Unilateral Early Termination"
-                    />
-                  ) : (
-                    "either party"
-                  )}
+                  <TrackChanges 
+                    original="either party"
+                    suggested="mutual written agreement or by the Disclosing Party"
+                    flagTitle="Premature Exit: Unilateral Early Termination"
+                  />
                   {" "}with 30 days' notice{" "}
-                  {autoApplyEnabled && reviewRun ? (
-                    <TrackChanges 
-                      original=""
-                      suggested=". Notwithstanding any termination of this Agreement, the confidentiality obligations in Clause 2 shall survive for five (5) years from the date of disclosure of the relevant Confidential Information"
-                      flagTitle="Incomplete Confidentiality Lifecycle Controls"
-                    />
-                  ) : (
-                    ""
-                  )}
+                  <TrackChanges 
+                    original=""
+                    suggested=". Notwithstanding any termination of this Agreement, the confidentiality obligations in Clause 2 shall survive for five (5) years from the date of disclosure of the relevant Confidential Information"
+                    flagTitle="Incomplete Confidentiality Lifecycle Controls"
+                  />
                   .
                 </p>
               </div>
 
-              <div>
+              <div ref={returnDestructionRef}>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Return or Destruction</h2>
                 <p className="text-base">
                   Upon termination, the Receiving Party shall return or destroy all Confidential Information within{" "}
-                  {autoApplyEnabled && reviewRun ? (
-                    <TrackChanges 
-                      original="a reasonable period"
-                      suggested="10 business days of termination of this Agreement"
-                      flagTitle="Vague Deadline: Unclear Return Timeline"
-                    />
-                  ) : (
-                    "a reasonable period"
-                  )}
+                  <TrackChanges 
+                    original="a reasonable period"
+                    suggested="10 business days of termination of this Agreement"
+                    flagTitle="Vague Deadline: Unclear Return Timeline"
+                  />
                   {" "}
-                  {autoApplyEnabled && reviewRun ? (
-                    <TrackChanges 
-                      original=""
-                      suggested=". The Receiving Party shall certify such destruction in writing. Backups containing Confidential Information shall also be deleted where feasible"
-                      flagTitle="Incomplete Confidentiality Lifecycle Controls"
-                    />
-                  ) : (
-                    ""
-                  )}
+                  <TrackChanges 
+                    original=""
+                    suggested=". The Receiving Party shall certify such destruction in writing. Backups containing Confidential Information shall also be deleted where feasible"
+                    flagTitle="Incomplete Confidentiality Lifecycle Controls"
+                  />
                   .
                 </p>
               </div>
@@ -2150,7 +2329,7 @@ export default function ContractReview() {
                 </p>
               </div>
 
-              {autoApplyEnabled && reviewRun && (
+              {(autoApplyEnabled && reviewRun) || acceptedFlags.includes("Incomplete Confidentiality Lifecycle Controls") ? (
                 <div>
                   <h2 className="text-xl font-semibold text-gray-900 mb-4">Lifecycle of Confidential Information</h2>
                   <p className="text-base">
@@ -2161,21 +2340,17 @@ export default function ContractReview() {
                     />
                   </p>
                 </div>
-              )}
+              ) : null}
 
-              <div>
+              <div ref={remediesRef}>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Remedies</h2>
                 <p className="text-base">
                   Any breach may result in irreparable harm. The Disclosing Party is entitled to seek injunctive relief{" "}
-                  {autoApplyEnabled && reviewRun ? (
-                    <TrackChanges 
-                      original=""
-                      suggested="in the courts of England and Wales [or relevant jurisdiction]"
-                      flagTitle="Jurisdiction Gap: No Legal Venue Set"
-                    />
-                  ) : (
-                    ""
-                  )}
+                  <TrackChanges 
+                    original=""
+                    suggested="in the courts of England and Wales [or relevant jurisdiction]"
+                    flagTitle="Jurisdiction Gap: No Legal Venue Set"
+                  />
                   , in addition to other legal remedies.
                 </p>
               </div>
