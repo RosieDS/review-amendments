@@ -1003,6 +1003,38 @@ export default function ContractReview() {
     setAcceptedFlags(prev => prev.filter(flag => flag !== flagTitle))
   }
 
+  // Function to handle undo direct application for a specific flag
+  const handleUndoDirectApplication = (flagTitle: string) => {
+    // Switch from direct application back to manual mode
+    setDirectApplyEnabled(false)
+    setAutoApplyEnabled(false)
+    // This will cause the document to show original text and the chat to show "Suggested" tab with buttons
+  }
+
+  // Function to check if a document section should have purple margin highlight
+  const shouldHighlightSection = (sectionName: string) => {
+    if (!selectedChildItem) return false
+    
+    const flagTitle = selectedChildItem.title
+    
+    switch (flagTitle) {
+      case "Loophole: Unverified Prior Knowledge Claim":
+        return sectionName === "exclusions"
+      case "Premature Exit: Unilateral Early Termination":
+        return sectionName === "term"
+      case "Untrackable Oral Disclosures":
+        return sectionName === "confidentialInfo"
+      case "Vague Deadline: Unclear Return Timeline":
+        return sectionName === "returnDestruction"
+      case "Jurisdiction Gap: No Legal Venue Set":
+        return sectionName === "remedies"
+      case "Incomplete Confidentiality Lifecycle Controls":
+        return sectionName === "obligations" || sectionName === "term" || sectionName === "returnDestruction" || sectionName === "lifecycle"
+      default:
+        return false
+    }
+  }
+
   return (
     <div className="flex min-h-screen bg-[#F9F9F9]" data-testid="contract-review-container">
       {/* Left Panel - Fixed width for prompt and history */}
@@ -1617,7 +1649,7 @@ export default function ContractReview() {
                                           Original
                                         </TabsTrigger>
                                         <TabsTrigger value="suggested" className="text-sm">
-                                          Suggested
+                                          {directApplyEnabled ? "New wording" : "Suggested"}
                                         </TabsTrigger>
                                       </TabsList>
 
@@ -1639,10 +1671,45 @@ export default function ContractReview() {
                                           <div className="border-t pt-3">
                                             <p className="text-xs font-medium text-[#7C3AED] mb-1">Why this helps:</p>
                                             <p className="text-xs text-gray-600">
-                                              Adds a documentation requirement, preventing false retrospective claims
-                                              and preserving the NDA's enforceability.
+                                              Adds a documentation requirement, preventing false retrospective claims and
+                                              preserving the NDA's enforceability.
                                             </p>
                                           </div>
+                                          {directApplyEnabled && reviewRun && (
+                                            <div className="border-t pt-3 mt-3">
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="text-xs h-7 px-3 border-gray-300 text-gray-600 hover:bg-gray-50"
+                                                onClick={() => handleUndoDirectApplication("Loophole: Unverified Prior Knowledge Claim")}
+                                              >
+                                                Undo
+                                              </Button>
+                                            </div>
+                                          )}
+                                          {!autoApplyEnabled && !directApplyEnabled && reviewRun && (
+                                            <div className="border-t pt-3 mt-3">
+                                              <div className="flex gap-2">
+                                                <Button
+                                                  size="sm"
+                                                  className="flex-1 text-xs h-8 bg-[#7C3AED] hover:bg-[#6D28D9]"
+                                                  onClick={() => handleAcceptFlag("Loophole: Unverified Prior Knowledge Claim")}
+                                                  disabled={acceptedFlags.includes("Loophole: Unverified Prior Knowledge Claim")}
+                                                >
+                                                  {acceptedFlags.includes("Loophole: Unverified Prior Knowledge Claim") ? "Accepted" : "Accept change"}
+                                                </Button>
+                                                <Button
+                                                  size="sm"
+                                                  variant="outline"
+                                                  className="flex-1 text-xs h-8 border-[#7C3AED] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white"
+                                                  onClick={() => handlePreviewFlag("Loophole: Unverified Prior Knowledge Claim")}
+                                                  disabled={previewedFlags.includes("Loophole: Unverified Prior Knowledge Claim") || acceptedFlags.includes("Loophole: Unverified Prior Knowledge Claim")}
+                                                >
+                                                  {previewedFlags.includes("Loophole: Unverified Prior Knowledge Claim") ? "Showing in doc" : "Show in track changes"}
+                                                </Button>
+                                              </div>
+                                            </div>
+                                          )}
                                         </div>
                                       </TabsContent>
                                     </Tabs>
@@ -1731,7 +1798,7 @@ export default function ContractReview() {
                                           Original
                                         </TabsTrigger>
                                         <TabsTrigger value="suggested" className="text-sm">
-                                          Suggested
+                                          {directApplyEnabled ? "New wording" : "Suggested"}
                                         </TabsTrigger>
                                       </TabsList>
 
@@ -1758,6 +1825,18 @@ export default function ContractReview() {
                                                   {content.why}
                                                 </p>
                                               </div>
+                                              {directApplyEnabled && reviewRun && (
+                                                <div className="border-t pt-3 mt-4">
+                                                  <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="text-xs h-7 px-3 border-gray-300 text-gray-600 hover:bg-gray-50"
+                                                    onClick={() => handleUndoDirectApplication(selectedChildItem.title)}
+                                                  >
+                                                    Undo
+                                                  </Button>
+                                                </div>
+                                              )}
                                               {!autoApplyEnabled && !directApplyEnabled && reviewRun && (
                                                 <div className="border-t pt-3 mt-4">
                                                   <div className="flex gap-2">
@@ -1793,6 +1872,18 @@ export default function ContractReview() {
                                                   {content.why}
                                                 </p>
                                               </div>
+                                              {directApplyEnabled && reviewRun && (
+                                                <div className="border-t pt-3 mt-3">
+                                                  <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="text-xs h-7 px-3 border-gray-300 text-gray-600 hover:bg-gray-50"
+                                                    onClick={() => handleUndoDirectApplication(selectedChildItem.title)}
+                                                  >
+                                                    Undo
+                                                  </Button>
+                                                </div>
+                                              )}
                                               {!autoApplyEnabled && !directApplyEnabled && reviewRun && (
                                                 <div className="border-t pt-3 mt-3">
                                                   <div className="flex gap-2">
@@ -2024,7 +2115,7 @@ export default function ContractReview() {
                                       Original
                                     </TabsTrigger>
                                     <TabsTrigger value="suggested" className="text-sm">
-                                      Suggested
+                                      {directApplyEnabled ? "New wording" : "Suggested"}
                                     </TabsTrigger>
                                   </TabsList>
 
@@ -2050,6 +2141,41 @@ export default function ContractReview() {
                                           preserving the NDA's enforceability.
                                         </p>
                                       </div>
+                                      {directApplyEnabled && reviewRun && (
+                                        <div className="border-t pt-3 mt-3">
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="text-xs h-7 px-3 border-gray-300 text-gray-600 hover:bg-gray-50"
+                                            onClick={() => handleUndoDirectApplication("Loophole: Unverified Prior Knowledge Claim")}
+                                          >
+                                            Undo
+                                          </Button>
+                                        </div>
+                                      )}
+                                      {!autoApplyEnabled && !directApplyEnabled && reviewRun && (
+                                        <div className="border-t pt-3 mt-3">
+                                          <div className="flex gap-2">
+                                            <Button
+                                              size="sm"
+                                              className="flex-1 text-xs h-8 bg-[#7C3AED] hover:bg-[#6D28D9]"
+                                              onClick={() => handleAcceptFlag("Loophole: Unverified Prior Knowledge Claim")}
+                                              disabled={acceptedFlags.includes("Loophole: Unverified Prior Knowledge Claim")}
+                                            >
+                                              {acceptedFlags.includes("Loophole: Unverified Prior Knowledge Claim") ? "Accepted" : "Accept change"}
+                                            </Button>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="flex-1 text-xs h-8 border-[#7C3AED] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white"
+                                              onClick={() => handlePreviewFlag("Loophole: Unverified Prior Knowledge Claim")}
+                                              disabled={previewedFlags.includes("Loophole: Unverified Prior Knowledge Claim") || acceptedFlags.includes("Loophole: Unverified Prior Knowledge Claim")}
+                                            >
+                                              {previewedFlags.includes("Loophole: Unverified Prior Knowledge Claim") ? "Showing in doc" : "Show in track changes"}
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
                                   </TabsContent>
                                 </Tabs>
@@ -2138,7 +2264,7 @@ export default function ContractReview() {
                                       Original
                                     </TabsTrigger>
                                     <TabsTrigger value="suggested" className="text-sm">
-                                      Suggested
+                                      {directApplyEnabled ? "New wording" : "Suggested"}
                                     </TabsTrigger>
                                   </TabsList>
 
@@ -2165,6 +2291,18 @@ export default function ContractReview() {
                                               {content.why}
                                             </p>
                                           </div>
+                                          {directApplyEnabled && reviewRun && (
+                                            <div className="border-t pt-3 mt-4">
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="text-xs h-7 px-3 border-gray-300 text-gray-600 hover:bg-gray-50"
+                                                onClick={() => handleUndoDirectApplication(selectedChildItem.title)}
+                                              >
+                                                Undo
+                                              </Button>
+                                            </div>
+                                          )}
                                           {!autoApplyEnabled && !directApplyEnabled && reviewRun && (
                                             <div className="border-t pt-3 mt-4">
                                               <div className="flex gap-2">
@@ -2200,6 +2338,18 @@ export default function ContractReview() {
                                               {content.why}
                                             </p>
                                           </div>
+                                          {directApplyEnabled && reviewRun && (
+                                            <div className="border-t pt-3 mt-3">
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="text-xs h-7 px-3 border-gray-300 text-gray-600 hover:bg-gray-50"
+                                                onClick={() => handleUndoDirectApplication(selectedChildItem.title)}
+                                              >
+                                                Undo
+                                              </Button>
+                                            </div>
+                                          )}
                                           {!autoApplyEnabled && !directApplyEnabled && reviewRun && (
                                             <div className="border-t pt-3 mt-3">
                                               <div className="flex gap-2">
@@ -2259,7 +2409,7 @@ export default function ContractReview() {
               </ScrollArea>
 
               {/* Edit Navigation Header - only show if there are unaccepted track changes */}
-              {selectedChildItem && (autoApplyEnabled || directApplyEnabled || previewedFlags.includes(selectedChildItem.title)) && !acceptedFlags.includes(selectedChildItem.title) && (
+              {selectedChildItem && (autoApplyEnabled || previewedFlags.includes(selectedChildItem.title)) && !acceptedFlags.includes(selectedChildItem.title) && (
                 <div className="border-t border-gray-200 bg-gray-50 px-4 py-3">
                   {(() => {
                     const changes = getTrackChangesForFlag(selectedChildItem.title)
@@ -2312,14 +2462,14 @@ export default function ContractReview() {
                             className="text-xs h-7 px-3 border-red-300 text-red-600 hover:bg-red-50"
                             onClick={() => handleRejectAllForFlag(selectedChildItem.title)}
                           >
-                            Reject all
+                            {changes.length === 1 ? "Reject" : "Reject all"}
                           </Button>
                           <Button
                             size="sm"
                             className="text-xs h-7 px-3 bg-green-600 hover:bg-green-700 text-white"
                             onClick={() => handleAcceptAllForFlag(selectedChildItem.title)}
                           >
-                            Accept all
+                            {changes.length === 1 ? "Accept" : "Accept all"}
                           </Button>
                         </div>
                       </div>
@@ -2394,7 +2544,7 @@ export default function ContractReview() {
                 </p>
               </div>
 
-              <div ref={backgroundRef}>
+              <div ref={backgroundRef} className={shouldHighlightSection("confidentialInfo") ? "border-l-4 border-[#7C3AED] pl-4" : ""}>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Confidential Information</h2>
                 <p className="text-base">
                   "Confidential Information" includes all non-public, proprietary, or confidential information, whether oral or written{" "}
@@ -2407,7 +2557,7 @@ export default function ContractReview() {
                 </p>
               </div>
 
-              <div ref={agreedTermsRef}>
+              <div ref={agreedTermsRef} className={shouldHighlightSection("obligations") ? "border-l-4 border-[#7C3AED] pl-4" : ""}>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Obligations of Confidentiality</h2>
                 <p className="text-base">
                   The Receiving Party agrees not to disclose, copy, or use the Confidential Information for any purpose
@@ -2421,7 +2571,7 @@ export default function ContractReview() {
                 </p>
               </div>
 
-              <div ref={section3Ref}>
+              <div ref={section3Ref} className={shouldHighlightSection("exclusions") ? "border-l-4 border-[#7C3AED] pl-4" : ""}>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Exclusions</h2>
                 <p className="text-base">Confidential Information does not include information that is:</p>
                 <ul className="list-disc ml-6 mt-2">
@@ -2439,7 +2589,7 @@ export default function ContractReview() {
                 </ul>
               </div>
 
-              <div ref={termRef}>
+              <div ref={termRef} className={shouldHighlightSection("term") ? "border-l-4 border-[#7C3AED] pl-4" : ""}>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Term</h2>
                 <p className="text-base">
                   This Agreement shall remain in effect for two (2) years from the Effective Date, unless terminated earlier by{" "}
@@ -2458,7 +2608,7 @@ export default function ContractReview() {
                 </p>
               </div>
 
-              <div ref={returnDestructionRef}>
+              <div ref={returnDestructionRef} className={shouldHighlightSection("returnDestruction") ? "border-l-4 border-[#7C3AED] pl-4" : ""}>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Return or Destruction</h2>
                 <p className="text-base">
                   Upon termination, the Receiving Party shall return or destroy all Confidential Information within{" "}
@@ -2485,7 +2635,7 @@ export default function ContractReview() {
               </div>
 
               {(autoApplyEnabled && reviewRun) || (directApplyEnabled && reviewRun) || acceptedFlags.includes("Incomplete Confidentiality Lifecycle Controls") ? (
-                <div>
+                <div className={shouldHighlightSection("lifecycle") ? "border-l-4 border-[#7C3AED] pl-4" : ""}>
                   <h2 className="text-xl font-semibold text-gray-900 mb-4">Lifecycle of Confidential Information</h2>
                   <p className="text-base">
                     <TrackChanges 
@@ -2497,7 +2647,7 @@ export default function ContractReview() {
                 </div>
               ) : null}
 
-              <div ref={remediesRef}>
+              <div ref={remediesRef} className={shouldHighlightSection("remedies") ? "border-l-4 border-[#7C3AED] pl-4" : ""}>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Remedies</h2>
                 <p className="text-base">
                   Any breach may result in irreparable harm. The Disclosing Party is entitled to seek injunctive relief{" "}
