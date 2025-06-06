@@ -73,7 +73,8 @@ export default function ContractReview() {
   const [animateRiskItems, setAnimateRiskItems] = useState(false)
   const [animateChatHistory, setAnimateChatHistory] = useState(false)
   const [autoApplyEnabled, setAutoApplyEnabled] = useState(false)
-  const [autoApplySelection, setAutoApplySelection] = useState<"yes" | "no" | null>(null)
+  const [autoApplySelection, setAutoApplySelection] = useState<"manual" | "direct" | "track_changes" | null>(null)
+  const [directApplyEnabled, setDirectApplyEnabled] = useState(false)
   const [previewedFlags, setPreviewedFlags] = useState<string[]>([])
   const [acceptedFlags, setAcceptedFlags] = useState<string[]>([])
   const [purpleUnderlines, setPurpleUnderlines] = useState<Record<string, boolean>>({})
@@ -153,6 +154,9 @@ export default function ContractReview() {
     setRiskPriority("all")
     setCurrentTab("todo")
     setShowLeftPanel(true) // Show left panel when review is completed
+
+    // Reset selection state for new review
+    setAutoApplySelection(null)
 
     // Count high and medium risk items
     const highRiskCount = [...ipProtectionItems, ...enforceabilityItems].filter(
@@ -813,6 +817,11 @@ export default function ContractReview() {
       }
     }
 
+    // Show direct application if directApplyEnabled is true
+    if (directApplyEnabled && reviewRun) {
+      return <>{suggested}</>
+    }
+
     // Show track changes if auto-apply is enabled OR if this specific flag is previewed
     const showTrackChanges = (autoApplyEnabled && reviewRun) || previewedFlags.includes(flagTitle)
     
@@ -1464,28 +1473,79 @@ export default function ContractReview() {
                                 </div>
                                 <div className="rounded-2xl bg-gray-100 px-4 py-3 max-w-[80%]">
                                   <p className="text-sm text-gray-900 mb-4 whitespace-pre-line">
-                                    Should I auto-apply suggestions to mitigate any risks in the document?{"\n\n"}I'd apply them in track changes.
+                                    I'll make editing suggestions to mitigate any issues I find.{"\n\n"}Would you prefer to:
                                   </p>
-                                  <div className="flex justify-end gap-2">
+                                  <div className="space-y-3">
+                                    <label className="flex items-center gap-3 cursor-pointer">
+                                      <input
+                                        type="radio"
+                                        name="edit-preference"
+                                        value="manual"
+                                        checked={autoApplySelection === "manual"}
+                                        onChange={() => setAutoApplySelection("manual")}
+                                        className="w-4 h-4 text-[#7C3AED] border-gray-300 focus:ring-[#7C3AED]"
+                                      />
+                                      <span className="text-sm text-gray-700">Choose manually any edits to apply</span>
+                                    </label>
+                                    
+                                    <label className="flex items-center gap-3 cursor-pointer">
+                                      <input
+                                        type="radio"
+                                        name="edit-preference"
+                                        value="direct"
+                                        checked={autoApplySelection === "direct"}
+                                        onChange={() => setAutoApplySelection("direct")}
+                                        className="w-4 h-4 text-[#7C3AED] border-gray-300 focus:ring-[#7C3AED]"
+                                      />
+                                      <span className="text-sm text-gray-700">Apply edits directly in the document</span>
+                                    </label>
+                                    
+                                    <label className="flex items-center gap-3 cursor-pointer">
+                                      <input
+                                        type="radio"
+                                        name="edit-preference"
+                                        value="track_changes"
+                                        checked={autoApplySelection === "track_changes"}
+                                        onChange={() => setAutoApplySelection("track_changes")}
+                                        className="w-4 h-4 text-[#7C3AED] border-gray-300 focus:ring-[#7C3AED]"
+                                      />
+                                      <span className="text-sm text-gray-700">Apply edits in track changes</span>
+                                    </label>
+                                  </div>
+                                  
+                                  <div className="flex justify-end mt-4">
                                     <Button
                                       size="sm"
-                                      className={`h-10 px-4 ${autoApplySelection === "yes" ? "bg-[#7C3AED] hover:bg-[#6D28D9] text-white" : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"}`}
+                                      className="h-10 px-4 bg-[#7C3AED] hover:bg-[#6D28D9] text-white"
+                                      disabled={!autoApplySelection}
                                       onClick={() => {
-                                        // Set selection state first
-                                        setAutoApplySelection("yes")
-                                        
                                         // Add small delay to show selection, then proceed
                                         setTimeout(() => {
-                                          // Add user response for "Yes" and immediately proceed to thank you
-                                          setAutoApplyEnabled(true) // Set auto-apply to true
+                                          // Set the appropriate modes based on selection
+                                          if (autoApplySelection === "manual") {
+                                            setAutoApplyEnabled(false)
+                                            setDirectApplyEnabled(false)
+                                          } else if (autoApplySelection === "direct") {
+                                            setAutoApplyEnabled(false)
+                                            setDirectApplyEnabled(true)
+                                          } else if (autoApplySelection === "track_changes") {
+                                            setAutoApplyEnabled(true)
+                                            setDirectApplyEnabled(false)
+                                          }
+                                          
+                                          // Add user response and proceed to thank you
                                           setActiveChat((prev) => {
                                             if (!prev) return null
+                                            const selectedOption = autoApplySelection === "manual" ? "Choose manually any edits to apply" :
+                                                                 autoApplySelection === "direct" ? "Apply edits directly in the document" :
+                                                                 "Apply edits in track changes"
+                                            
                                             const updatedMessages = [
                                               ...prev.messages,
                                               {
                                                 id: Date.now().toString(),
                                                 type: "user",
-                                                content: "Yes",
+                                                content: selectedOption,
                                               },
                                               {
                                                 id: (Date.now() + 1).toString(),
@@ -1514,56 +1574,7 @@ export default function ContractReview() {
                                         }, 300)
                                       }}
                                     >
-                                      Yes
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      className={`h-10 px-4 ${autoApplySelection === "no" ? "bg-[#7C3AED] hover:bg-[#6D28D9] text-white" : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"}`}
-                                      onClick={() => {
-                                        // Set selection state first
-                                        setAutoApplySelection("no")
-                                        
-                                        // Add small delay to show selection, then proceed
-                                        setTimeout(() => {
-                                          // Add user response for "No" and immediately proceed to thank you
-                                          setAutoApplyEnabled(false) // Set auto-apply to false
-                                          setActiveChat((prev) => {
-                                            if (!prev) return null
-                                            const updatedMessages = [
-                                              ...prev.messages,
-                                              {
-                                                id: Date.now().toString(),
-                                                type: "user",
-                                                content: "No",
-                                              },
-                                              {
-                                                id: (Date.now() + 1).toString(),
-                                                type: "ai",
-                                                content:
-                                                  "Thank you!\n\nWe're running your tailored AI risk review now. This might take a couple of minutes.",
-                                                isLoading: true,
-                                              },
-                                            ]
-
-                                            // Set processing state to true
-                                            setIsProcessingReview(true)
-
-                                            // After 4 seconds, complete the review
-                                            setTimeout(() => {
-                                              setIsProcessingReview(false)
-                                              startReview()
-                                            }, 4000)
-
-                                            return {
-                                              ...prev,
-                                              messages: updatedMessages,
-                                            }
-                                          })
-                                          setPrompt("")
-                                        }, 300)
-                                      }}
-                                    >
-                                      No
+                                      Continue
                                     </Button>
                                   </div>
                                 </div>
@@ -1747,7 +1758,7 @@ export default function ContractReview() {
                                                   {content.why}
                                                 </p>
                                               </div>
-                                              {!autoApplyEnabled && reviewRun && (
+                                              {!autoApplyEnabled && !directApplyEnabled && reviewRun && (
                                                 <div className="border-t pt-3 mt-4">
                                                   <div className="flex gap-2">
                                                     <Button
@@ -1782,7 +1793,7 @@ export default function ContractReview() {
                                                   {content.why}
                                                 </p>
                                               </div>
-                                              {!autoApplyEnabled && reviewRun && (
+                                              {!autoApplyEnabled && !directApplyEnabled && reviewRun && (
                                                 <div className="border-t pt-3 mt-3">
                                                   <div className="flex gap-2">
                                                     <Button
@@ -2154,7 +2165,7 @@ export default function ContractReview() {
                                               {content.why}
                                             </p>
                                           </div>
-                                          {!autoApplyEnabled && reviewRun && (
+                                          {!autoApplyEnabled && !directApplyEnabled && reviewRun && (
                                             <div className="border-t pt-3 mt-4">
                                               <div className="flex gap-2">
                                                 <Button
@@ -2189,7 +2200,7 @@ export default function ContractReview() {
                                               {content.why}
                                             </p>
                                           </div>
-                                          {!autoApplyEnabled && reviewRun && (
+                                          {!autoApplyEnabled && !directApplyEnabled && reviewRun && (
                                             <div className="border-t pt-3 mt-3">
                                               <div className="flex gap-2">
                                                 <Button
@@ -2248,7 +2259,7 @@ export default function ContractReview() {
               </ScrollArea>
 
               {/* Edit Navigation Header - only show if there are unaccepted track changes */}
-              {selectedChildItem && (autoApplyEnabled || previewedFlags.includes(selectedChildItem.title)) && !acceptedFlags.includes(selectedChildItem.title) && (
+              {selectedChildItem && (autoApplyEnabled || directApplyEnabled || previewedFlags.includes(selectedChildItem.title)) && !acceptedFlags.includes(selectedChildItem.title) && (
                 <div className="border-t border-gray-200 bg-gray-50 px-4 py-3">
                   {(() => {
                     const changes = getTrackChangesForFlag(selectedChildItem.title)
@@ -2473,7 +2484,7 @@ export default function ContractReview() {
                 </p>
               </div>
 
-              {(autoApplyEnabled && reviewRun) || acceptedFlags.includes("Incomplete Confidentiality Lifecycle Controls") ? (
+              {(autoApplyEnabled && reviewRun) || (directApplyEnabled && reviewRun) || acceptedFlags.includes("Incomplete Confidentiality Lifecycle Controls") ? (
                 <div>
                   <h2 className="text-xl font-semibold text-gray-900 mb-4">Lifecycle of Confidential Information</h2>
                   <p className="text-base">
