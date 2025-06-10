@@ -1505,7 +1505,7 @@ export default function ContractReview() {
                                 </div>
                                 <div className="rounded-2xl bg-gray-100 px-4 py-3 max-w-[80%]">
                                   <p className="text-sm text-gray-900 mb-4 whitespace-pre-line">
-                                    I'll make editing suggestions to mitigate any issues I find.{"\n\n"}Would you prefer to:
+                                    If I find any issues, I'll make suggestions to fix them and explain my thinking.{"\n\n"}How would you like to apply suggestions?
                                   </p>
                                   <div className="space-y-3">
                                     <label className="flex items-center gap-3 cursor-pointer">
@@ -1517,19 +1517,10 @@ export default function ContractReview() {
                                         onChange={() => setAutoApplySelection("manual")}
                                         className="w-4 h-4 text-[#7C3AED] border-gray-300 focus:ring-[#7C3AED]"
                                       />
-                                      <span className="text-sm text-gray-700">Choose manually any edits to apply</span>
-                                    </label>
-                                    
-                                    <label className="flex items-center gap-3 cursor-pointer">
-                                      <input
-                                        type="radio"
-                                        name="edit-preference"
-                                        value="direct"
-                                        checked={autoApplySelection === "direct"}
-                                        onChange={() => setAutoApplySelection("direct")}
-                                        className="w-4 h-4 text-[#7C3AED] border-gray-300 focus:ring-[#7C3AED]"
-                                      />
-                                      <span className="text-sm text-gray-700">Apply edits directly in the document</span>
+                                      <div className="flex flex-col">
+                                        <span className="text-sm font-medium text-gray-900">🖐 Manual</span>
+                                        <span className="text-xs text-gray-600">Preview each change before adding</span>
+                                      </div>
                                     </label>
                                     
                                     <label className="flex items-center gap-3 cursor-pointer">
@@ -1541,7 +1532,25 @@ export default function ContractReview() {
                                         onChange={() => setAutoApplySelection("track_changes")}
                                         className="w-4 h-4 text-[#7C3AED] border-gray-300 focus:ring-[#7C3AED]"
                                       />
-                                      <span className="text-sm text-gray-700">Apply edits in track changes</span>
+                                      <div className="flex flex-col">
+                                        <span className="text-sm font-medium text-gray-900">✍️ Track Changes</span>
+                                        <span className="text-xs text-gray-600">Suggestions inserted with redlines</span>
+                                      </div>
+                                    </label>
+                                    
+                                    <label className="flex items-center gap-3 cursor-pointer">
+                                      <input
+                                        type="radio"
+                                        name="edit-preference"
+                                        value="direct"
+                                        checked={autoApplySelection === "direct"}
+                                        onChange={() => setAutoApplySelection("direct")}
+                                        className="w-4 h-4 text-[#7C3AED] border-gray-300 focus:ring-[#7C3AED]"
+                                      />
+                                      <div className="flex flex-col">
+                                        <span className="text-sm font-medium text-gray-900">⚡ Auto Apply</span>
+                                        <span className="text-xs text-gray-600">Apply all changes at once, review later</span>
+                                      </div>
                                     </label>
                                   </div>
                                   
@@ -1568,9 +1577,9 @@ export default function ContractReview() {
                                           // Add user response and proceed to thank you
                                           setActiveChat((prev) => {
                                             if (!prev) return null
-                                            const selectedOption = autoApplySelection === "manual" ? "Choose manually any edits to apply" :
-                                                                 autoApplySelection === "direct" ? "Apply edits directly in the document" :
-                                                                 "Apply edits in track changes"
+                                            const selectedOption = autoApplySelection === "manual" ? "🖐 Manual" :
+                                                                 autoApplySelection === "direct" ? "⚡ Auto Apply" :
+                                                                 "✍️ Track Changes"
                                             
                                             const updatedMessages = [
                                               ...prev.messages,
