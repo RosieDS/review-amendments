@@ -157,6 +157,10 @@ export default function ContractReview() {
 
     // Reset selection state for new review
     setAutoApplySelection(null)
+    // Reset track changes state to start clean
+    setPreviewedFlags([])
+    setAcceptedFlags([])
+    setPurpleUnderlines({})
 
     // Count high and medium risk items
     const highRiskCount = [...ipProtectionItems, ...enforceabilityItems].filter(
@@ -364,20 +368,6 @@ export default function ContractReview() {
           }
           // If this is the second user message (responding to information request)
           else if (userMessageCount === 2) {
-            // Add the auto-apply question instead of immediately proceeding to "Thank you!"
-            const autoApplyQuestion: Message = {
-              id: (Date.now() + 2).toString(),
-              type: "ai",
-              content: "auto-apply-question", // Special marker for the auto-apply question
-            }
-
-            return {
-              ...prev,
-              messages: [...updatedMessages, autoApplyQuestion],
-            }
-          }
-          // If this is the third user message (responding to auto-apply question)
-          else if (userMessageCount === 3) {
             // Add the final thank you message with loading animation
             const finalMessage: Message = {
               id: (Date.now() + 2).toString(),
@@ -1251,10 +1241,45 @@ export default function ContractReview() {
             </div>
           </div>
 
-          {/* Mark all as reviewed */}
+          {/* Bulk action buttons */}
           {currentTab === "todo" && reviewRun && getCurrentList().length > 0 && (
             <div className="p-3 border-t border-gray-200">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full h-8 text-xs border-[#7C3AED] text-[#7C3AED] hover:bg-[#F9F5FF] hover:text-[#7C3AED]"
+                  onClick={() => {
+                    // Preview all unresolved flags in track changes
+                    const allUnresolvedItems = [...ipProtectionItems, ...enforceabilityItems].filter(
+                      (item) => !resolvedItems.includes(item.title),
+                    )
+                    setPreviewedFlags(allUnresolvedItems.map((item) => item.title))
+                  }}
+                >
+                  <GitCompare className="mr-2 h-3 w-3" />
+                  Preview in Track Changes
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full h-8 text-xs border-[#7C3AED] text-[#7C3AED] hover:bg-[#F9F5FF] hover:text-[#7C3AED]"
+                  onClick={() => {
+                    // Accept all unresolved flags
+                    const allUnresolvedItems = [...ipProtectionItems, ...enforceabilityItems].filter(
+                      (item) => !resolvedItems.includes(item.title),
+                    )
+                    setAcceptedFlags(allUnresolvedItems.map((item) => item.title))
+                    setResolvedItems((prev) => [...prev, ...allUnresolvedItems.map((item) => item.title)])
+                  }}
+                >
+                  <CheckCircle2 className="mr-2 h-3 w-3" />
+                  Accept All Changes
+                </Button>
+              </div>
+              
+              {/* Mark all as reviewed checkbox */}
+              <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100">
                 <input
                   type="checkbox"
                   id="mark-all"
@@ -1494,135 +1519,7 @@ export default function ContractReview() {
                           )
                         }
 
-                        if (message.type === "ai" && message.content === "auto-apply-question") {
-                          return (
-                            <div key={message.id} className="flex flex-col gap-3" data-testid={`auto-apply-question-${message.id}`}>
-                              <div className="flex items-end gap-2">
-                                <div className="w-8 h-8 rounded-full bg-purple-100 flex-shrink-0 overflow-hidden">
-                                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <circle cx="12" cy="12" r="10" fill="#7C3AED" />
-                                  </svg>
-                                </div>
-                                <div className="rounded-2xl bg-gray-100 px-4 py-3 max-w-[80%]">
-                                  <p className="text-sm text-gray-900 mb-4 whitespace-pre-line">
-                                    If I find any issues, I'll make suggestions to fix them and explain my thinking.{"\n\n"}How would you like to apply suggestions?
-                                  </p>
-                                  <div className="space-y-3">
-                                    <label className="flex items-center gap-3 cursor-pointer">
-                                      <input
-                                        type="radio"
-                                        name="edit-preference"
-                                        value="manual"
-                                        checked={autoApplySelection === "manual"}
-                                        onChange={() => setAutoApplySelection("manual")}
-                                        className="w-4 h-4 text-[#7C3AED] border-gray-300 focus:ring-[#7C3AED]"
-                                      />
-                                      <div className="flex flex-col">
-                                        <span className="text-sm font-medium text-gray-900">🖐 Manual</span>
-                                        <span className="text-xs text-gray-600">Preview each change before adding</span>
-                                      </div>
-                                    </label>
-                                    
-                                    <label className="flex items-center gap-3 cursor-pointer">
-                                      <input
-                                        type="radio"
-                                        name="edit-preference"
-                                        value="track_changes"
-                                        checked={autoApplySelection === "track_changes"}
-                                        onChange={() => setAutoApplySelection("track_changes")}
-                                        className="w-4 h-4 text-[#7C3AED] border-gray-300 focus:ring-[#7C3AED]"
-                                      />
-                                      <div className="flex flex-col">
-                                        <span className="text-sm font-medium text-gray-900">✍️ Track Changes</span>
-                                        <span className="text-xs text-gray-600">Suggestions inserted with redlines</span>
-                                      </div>
-                                    </label>
-                                    
-                                    <label className="flex items-center gap-3 cursor-pointer">
-                                      <input
-                                        type="radio"
-                                        name="edit-preference"
-                                        value="direct"
-                                        checked={autoApplySelection === "direct"}
-                                        onChange={() => setAutoApplySelection("direct")}
-                                        className="w-4 h-4 text-[#7C3AED] border-gray-300 focus:ring-[#7C3AED]"
-                                      />
-                                      <div className="flex flex-col">
-                                        <span className="text-sm font-medium text-gray-900">⚡ Auto Apply</span>
-                                        <span className="text-xs text-gray-600">Apply all changes at once, review later</span>
-                                      </div>
-                                    </label>
-                                  </div>
-                                  
-                                  <div className="flex justify-end mt-4">
-                                    <Button
-                                      size="sm"
-                                      className="h-10 px-4 bg-[#7C3AED] hover:bg-[#6D28D9] text-white"
-                                      disabled={!autoApplySelection}
-                                      onClick={() => {
-                                        // Add small delay to show selection, then proceed
-                                        setTimeout(() => {
-                                          // Set the appropriate modes based on selection
-                                          if (autoApplySelection === "manual") {
-                                            setAutoApplyEnabled(false)
-                                            setDirectApplyEnabled(false)
-                                          } else if (autoApplySelection === "direct") {
-                                            setAutoApplyEnabled(false)
-                                            setDirectApplyEnabled(true)
-                                          } else if (autoApplySelection === "track_changes") {
-                                            setAutoApplyEnabled(true)
-                                            setDirectApplyEnabled(false)
-                                          }
-                                          
-                                          // Add user response and proceed to thank you
-                                          setActiveChat((prev) => {
-                                            if (!prev) return null
-                                            const selectedOption = autoApplySelection === "manual" ? "🖐 Manual" :
-                                                                 autoApplySelection === "direct" ? "⚡ Auto Apply" :
-                                                                 "✍️ Track Changes"
-                                            
-                                            const updatedMessages = [
-                                              ...prev.messages,
-                                              {
-                                                id: Date.now().toString(),
-                                                type: "user",
-                                                content: selectedOption,
-                                              },
-                                              {
-                                                id: (Date.now() + 1).toString(),
-                                                type: "ai",
-                                                content:
-                                                  "Thank you!\n\nWe're running your tailored AI risk review now. This might take a couple of minutes.",
-                                                isLoading: true,
-                                              },
-                                            ]
 
-                                            // Set processing state to true
-                                            setIsProcessingReview(true)
-
-                                            // After 4 seconds, complete the review
-                                            setTimeout(() => {
-                                              setIsProcessingReview(false)
-                                              startReview()
-                                            }, 4000)
-
-                                            return {
-                                              ...prev,
-                                              messages: updatedMessages,
-                                            }
-                                          })
-                                          setPrompt("")
-                                        }, 300)
-                                      }}
-                                    >
-                                      Continue
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        }
 
                         if (message.type === "ai") {
                           // Handle structured risk content
@@ -1714,7 +1611,7 @@ export default function ContractReview() {
                                                   onClick={() => handlePreviewFlag("Loophole: Unverified Prior Knowledge Claim")}
                                                   disabled={previewedFlags.includes("Loophole: Unverified Prior Knowledge Claim") || acceptedFlags.includes("Loophole: Unverified Prior Knowledge Claim")}
                                                 >
-                                                  {previewedFlags.includes("Loophole: Unverified Prior Knowledge Claim") ? "Showing in doc" : "Show in track changes"}
+                                                  {previewedFlags.includes("Loophole: Unverified Prior Knowledge Claim") ? "Showing in doc" : "Preview in track changes"}
                                                 </Button>
                                               </div>
                                             </div>
@@ -1864,7 +1761,7 @@ export default function ContractReview() {
                                                       onClick={() => handlePreviewFlag(selectedChildItem.title)}
                                                       disabled={previewedFlags.includes(selectedChildItem.title) || acceptedFlags.includes(selectedChildItem.title)}
                                                     >
-                                                      {previewedFlags.includes(selectedChildItem.title) ? "Showing in doc" : "Show in track changes"}
+                                                      {previewedFlags.includes(selectedChildItem.title) ? "Showing in doc" : "Preview in track changes"}
                                                     </Button>
                                                   </div>
                                                 </div>
@@ -1911,7 +1808,7 @@ export default function ContractReview() {
                                                       onClick={() => handlePreviewFlag(selectedChildItem.title)}
                                                       disabled={previewedFlags.includes(selectedChildItem.title) || acceptedFlags.includes(selectedChildItem.title)}
                                                     >
-                                                      {previewedFlags.includes(selectedChildItem.title) ? "Showing in doc" : "Show in track changes"}
+                                                      {previewedFlags.includes(selectedChildItem.title) ? "Showing in doc" : "Preview in track changes"}
                                                     </Button>
                                                   </div>
                                                 </div>
@@ -2180,7 +2077,7 @@ export default function ContractReview() {
                                               onClick={() => handlePreviewFlag("Loophole: Unverified Prior Knowledge Claim")}
                                               disabled={previewedFlags.includes("Loophole: Unverified Prior Knowledge Claim") || acceptedFlags.includes("Loophole: Unverified Prior Knowledge Claim")}
                                             >
-                                              {previewedFlags.includes("Loophole: Unverified Prior Knowledge Claim") ? "Showing in doc" : "Show in track changes"}
+                                              {previewedFlags.includes("Loophole: Unverified Prior Knowledge Claim") ? "Showing in doc" : "Preview in track changes"}
                                             </Button>
                                           </div>
                                         </div>
@@ -2330,7 +2227,7 @@ export default function ContractReview() {
                                                   onClick={() => handlePreviewFlag(selectedChildItem.title)}
                                                   disabled={previewedFlags.includes(selectedChildItem.title) || acceptedFlags.includes(selectedChildItem.title)}
                                                 >
-                                                  {previewedFlags.includes(selectedChildItem.title) ? "Showing in doc" : "Show in track changes"}
+                                                  {previewedFlags.includes(selectedChildItem.title) ? "Showing in doc" : "Preview in track changes"}
                                                 </Button>
                                               </div>
                                             </div>
@@ -2377,7 +2274,7 @@ export default function ContractReview() {
                                                   onClick={() => handlePreviewFlag(selectedChildItem.title)}
                                                   disabled={previewedFlags.includes(selectedChildItem.title) || acceptedFlags.includes(selectedChildItem.title)}
                                                 >
-                                                  {previewedFlags.includes(selectedChildItem.title) ? "Showing in doc" : "Show in track changes"}
+                                                  {previewedFlags.includes(selectedChildItem.title) ? "Showing in doc" : "Preview in track changes"}
                                                 </Button>
                                               </div>
                                             </div>
