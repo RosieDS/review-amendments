@@ -906,7 +906,11 @@ export default function ContractReview() {
 
   // Functions to handle individual flag actions
   const handlePreviewFlag = (flagTitle: string) => {
-    if (!previewedFlags.includes(flagTitle)) {
+    if (previewedFlags.includes(flagTitle)) {
+      // If already previewed, remove it (hide track changes)
+      setPreviewedFlags(prev => prev.filter(flag => flag !== flagTitle))
+    } else {
+      // If not previewed, add it (show track changes)
       setPreviewedFlags(prev => [...prev, flagTitle])
     }
   }
@@ -999,6 +1003,25 @@ export default function ContractReview() {
     setDirectApplyEnabled(false)
     setAutoApplyEnabled(false)
     // This will cause the document to show original text and the chat to show "Suggested" tab with buttons
+  }
+
+  // Function to toggle all unresolved flags for track changes
+  const handleToggleAllTrackChanges = () => {
+    const allUnresolvedItems = [...ipProtectionItems, ...enforceabilityItems].filter(
+      (item) => !resolvedItems.includes(item.title),
+    )
+    const allUnresolvedTitles = allUnresolvedItems.map((item) => item.title)
+    
+    // Check if all unresolved flags are currently previewed
+    const allPreviewed = allUnresolvedTitles.every(title => previewedFlags.includes(title))
+    
+    if (allPreviewed) {
+      // If all are previewed, hide all track changes
+      setPreviewedFlags(prev => prev.filter(flag => !allUnresolvedTitles.includes(flag)))
+    } else {
+      // If not all are previewed, show all track changes
+      setPreviewedFlags(prev => [...new Set([...prev, ...allUnresolvedTitles])])
+    }
   }
 
   // Function to check if a document section should have purple margin highlight
@@ -1249,16 +1272,17 @@ export default function ContractReview() {
                   variant="outline"
                   size="sm"
                   className="w-full h-8 text-xs border-[#7C3AED] text-[#7C3AED] hover:bg-[#F9F5FF] hover:text-[#7C3AED]"
-                  onClick={() => {
-                    // Preview all unresolved flags in track changes
+                  onClick={handleToggleAllTrackChanges}
+                >
+                  <GitCompare className="mr-2 h-3 w-3" />
+                  {(() => {
                     const allUnresolvedItems = [...ipProtectionItems, ...enforceabilityItems].filter(
                       (item) => !resolvedItems.includes(item.title),
                     )
-                    setPreviewedFlags(allUnresolvedItems.map((item) => item.title))
-                  }}
-                >
-                  <GitCompare className="mr-2 h-3 w-3" />
-                  Preview in Track Changes
+                    const allUnresolvedTitles = allUnresolvedItems.map((item) => item.title)
+                    const allPreviewed = allUnresolvedTitles.every(title => previewedFlags.includes(title))
+                    return allPreviewed ? "Hide track changes" : "Preview in Track Changes"
+                  })()}
                 </Button>
                 <Button
                   variant="outline"
@@ -1609,9 +1633,9 @@ export default function ContractReview() {
                                                   variant="outline"
                                                   className="flex-1 text-xs h-8 border-[#7C3AED] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white"
                                                   onClick={() => handlePreviewFlag("Loophole: Unverified Prior Knowledge Claim")}
-                                                  disabled={previewedFlags.includes("Loophole: Unverified Prior Knowledge Claim") || acceptedFlags.includes("Loophole: Unverified Prior Knowledge Claim")}
+                                                  disabled={acceptedFlags.includes("Loophole: Unverified Prior Knowledge Claim")}
                                                 >
-                                                  {previewedFlags.includes("Loophole: Unverified Prior Knowledge Claim") ? "Showing in doc" : "Preview in track changes"}
+                                                  {previewedFlags.includes("Loophole: Unverified Prior Knowledge Claim") ? "Hide track changes" : "Preview in track changes"}
                                                 </Button>
                                               </div>
                                             </div>
@@ -1759,9 +1783,9 @@ export default function ContractReview() {
                                                       variant="outline"
                                                       className="flex-1 text-xs h-8 border-[#7C3AED] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white"
                                                       onClick={() => handlePreviewFlag(selectedChildItem.title)}
-                                                      disabled={previewedFlags.includes(selectedChildItem.title) || acceptedFlags.includes(selectedChildItem.title)}
+                                                      disabled={acceptedFlags.includes(selectedChildItem.title)}
                                                     >
-                                                      {previewedFlags.includes(selectedChildItem.title) ? "Showing in doc" : "Preview in track changes"}
+                                                      {previewedFlags.includes(selectedChildItem.title) ? "Hide track changes" : "Preview in track changes"}
                                                     </Button>
                                                   </div>
                                                 </div>
@@ -1806,9 +1830,9 @@ export default function ContractReview() {
                                                       variant="outline"
                                                       className="flex-1 text-xs h-8 border-[#7C3AED] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white"
                                                       onClick={() => handlePreviewFlag(selectedChildItem.title)}
-                                                      disabled={previewedFlags.includes(selectedChildItem.title) || acceptedFlags.includes(selectedChildItem.title)}
+                                                      disabled={acceptedFlags.includes(selectedChildItem.title)}
                                                     >
-                                                      {previewedFlags.includes(selectedChildItem.title) ? "Showing in doc" : "Preview in track changes"}
+                                                      {previewedFlags.includes(selectedChildItem.title) ? "Hide track changes" : "Preview in track changes"}
                                                     </Button>
                                                   </div>
                                                 </div>
@@ -2075,9 +2099,9 @@ export default function ContractReview() {
                                               variant="outline"
                                               className="flex-1 text-xs h-8 border-[#7C3AED] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white"
                                               onClick={() => handlePreviewFlag("Loophole: Unverified Prior Knowledge Claim")}
-                                              disabled={previewedFlags.includes("Loophole: Unverified Prior Knowledge Claim") || acceptedFlags.includes("Loophole: Unverified Prior Knowledge Claim")}
+                                              disabled={acceptedFlags.includes("Loophole: Unverified Prior Knowledge Claim")}
                                             >
-                                              {previewedFlags.includes("Loophole: Unverified Prior Knowledge Claim") ? "Showing in doc" : "Preview in track changes"}
+                                              {previewedFlags.includes("Loophole: Unverified Prior Knowledge Claim") ? "Hide track changes" : "Preview in track changes"}
                                             </Button>
                                           </div>
                                         </div>
@@ -2225,9 +2249,9 @@ export default function ContractReview() {
                                                   variant="outline"
                                                   className="flex-1 text-xs h-8 border-[#7C3AED] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white"
                                                   onClick={() => handlePreviewFlag(selectedChildItem.title)}
-                                                  disabled={previewedFlags.includes(selectedChildItem.title) || acceptedFlags.includes(selectedChildItem.title)}
+                                                  disabled={acceptedFlags.includes(selectedChildItem.title)}
                                                 >
-                                                  {previewedFlags.includes(selectedChildItem.title) ? "Showing in doc" : "Preview in track changes"}
+                                                  {previewedFlags.includes(selectedChildItem.title) ? "Hide track changes" : "Preview in track changes"}
                                                 </Button>
                                               </div>
                                             </div>
@@ -2272,9 +2296,9 @@ export default function ContractReview() {
                                                   variant="outline"
                                                   className="flex-1 text-xs h-8 border-[#7C3AED] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white"
                                                   onClick={() => handlePreviewFlag(selectedChildItem.title)}
-                                                  disabled={previewedFlags.includes(selectedChildItem.title) || acceptedFlags.includes(selectedChildItem.title)}
+                                                  disabled={acceptedFlags.includes(selectedChildItem.title)}
                                                 >
-                                                  {previewedFlags.includes(selectedChildItem.title) ? "Showing in doc" : "Preview in track changes"}
+                                                  {previewedFlags.includes(selectedChildItem.title) ? "Hide track changes" : "Preview in track changes"}
                                                 </Button>
                                               </div>
                                             </div>
