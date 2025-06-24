@@ -1761,7 +1761,7 @@ export default function ContractReview() {
                                                     size="sm"
                                                     variant="outline"
                                                     className="text-xs h-7 px-3 border-gray-300 text-gray-600 hover:bg-gray-50"
-                                                    onClick={() => handleUndoDirectApplication(selectedChildItem.title)}
+                                                    onClick={() => handleUndoDirectApplication(selectedChildItem!.title)}
                                                   >
                                                     Undo
                                                   </Button>
@@ -1773,19 +1773,19 @@ export default function ContractReview() {
                                                     <Button
                                                       size="sm"
                                                       className="flex-1 text-xs h-8 bg-[#7C3AED] hover:bg-[#6D28D9]"
-                                                      onClick={() => handleAcceptFlag(selectedChildItem.title)}
-                                                      disabled={acceptedFlags.includes(selectedChildItem.title)}
+                                                      onClick={() => handleAcceptFlag(selectedChildItem!.title)}
+                                                      disabled={acceptedFlags.includes(selectedChildItem!.title)}
                                                     >
-                                                      {acceptedFlags.includes(selectedChildItem.title) ? "Accepted" : "Accept change"}
+                                                      {acceptedFlags.includes(selectedChildItem!.title) ? "Accepted" : "Accept change"}
                                                     </Button>
                                                     <Button
                                                       size="sm"
                                                       variant="outline"
                                                       className="flex-1 text-xs h-8 border-[#7C3AED] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white"
-                                                      onClick={() => handlePreviewFlag(selectedChildItem.title)}
-                                                      disabled={acceptedFlags.includes(selectedChildItem.title)}
+                                                      onClick={() => handlePreviewFlag(selectedChildItem!.title)}
+                                                      disabled={acceptedFlags.includes(selectedChildItem!.title)}
                                                     >
-                                                      {previewedFlags.includes(selectedChildItem.title) ? "Hide track changes" : "Preview in track changes"}
+                                                      {previewedFlags.includes(selectedChildItem!.title) ? "Hide track changes" : "Preview in track changes"}
                                                     </Button>
                                                   </div>
                                                 </div>
@@ -1808,7 +1808,7 @@ export default function ContractReview() {
                                                     size="sm"
                                                     variant="outline"
                                                     className="text-xs h-7 px-3 border-gray-300 text-gray-600 hover:bg-gray-50"
-                                                    onClick={() => handleUndoDirectApplication(selectedChildItem.title)}
+                                                    onClick={() => handleUndoDirectApplication(selectedChildItem!.title)}
                                                   >
                                                     Undo
                                                   </Button>
@@ -1820,19 +1820,19 @@ export default function ContractReview() {
                                                     <Button
                                                       size="sm"
                                                       className="flex-1 text-xs h-8 bg-[#7C3AED] hover:bg-[#6D28D9]"
-                                                      onClick={() => handleAcceptFlag(selectedChildItem.title)}
-                                                      disabled={acceptedFlags.includes(selectedChildItem.title)}
+                                                      onClick={() => handleAcceptFlag(selectedChildItem!.title)}
+                                                      disabled={acceptedFlags.includes(selectedChildItem!.title)}
                                                     >
-                                                      {acceptedFlags.includes(selectedChildItem.title) ? "Accepted" : "Accept change"}
+                                                      {acceptedFlags.includes(selectedChildItem!.title) ? "Accepted" : "Accept change"}
                                                     </Button>
                                                     <Button
                                                       size="sm"
                                                       variant="outline"
                                                       className="flex-1 text-xs h-8 border-[#7C3AED] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white"
-                                                      onClick={() => handlePreviewFlag(selectedChildItem.title)}
-                                                      disabled={acceptedFlags.includes(selectedChildItem.title)}
+                                                      onClick={() => handlePreviewFlag(selectedChildItem!.title)}
+                                                      disabled={acceptedFlags.includes(selectedChildItem!.title)}
                                                     >
-                                                      {previewedFlags.includes(selectedChildItem.title) ? "Hide track changes" : "Preview in track changes"}
+                                                      {previewedFlags.includes(selectedChildItem!.title) ? "Hide track changes" : "Preview in track changes"}
                                                     </Button>
                                                   </div>
                                                 </div>
@@ -2227,31 +2227,31 @@ export default function ContractReview() {
                                                 size="sm"
                                                 variant="outline"
                                                 className="text-xs h-7 px-3 border-gray-300 text-gray-600 hover:bg-gray-50"
-                                                onClick={() => handleUndoDirectApplication(selectedChildItem.title)}
-                                              >
-                                                Undo
-                                              </Button>
-                                            </div>
-                                          )}
-                                          {!autoApplyEnabled && !directApplyEnabled && reviewRun && (
-                                            <div className="border-t pt-3 mt-4">
-                                              <div className="flex gap-2">
-                                                <Button
-                                                  size="sm"
-                                                  className="flex-1 text-xs h-8 bg-[#7C3AED] hover:bg-[#6D28D9]"
-                                                  onClick={() => handleAcceptFlag(selectedChildItem.title)}
-                                                  disabled={acceptedFlags.includes(selectedChildItem.title)}
-                                                >
-                                                  {acceptedFlags.includes(selectedChildItem.title) ? "Accepted" : "Accept change"}
-                                                </Button>
-                                                <Button
-                                                  size="sm"
-                                                  variant="outline"
-                                                  className="flex-1 text-xs h-8 border-[#7C3AED] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white"
-                                                  onClick={() => handlePreviewFlag(selectedChildItem.title)}
-                                                  disabled={acceptedFlags.includes(selectedChildItem.title)}
-                                                >
-                                                  {previewedFlags.includes(selectedChildItem.title) ? "Hide track changes" : "Preview in track changes"}
+                                                                                                    onClick={() => handleUndoDirectApplication(selectedChildItem!.title)}
+                                                  >
+                                                    Undo
+                                                  </Button>
+                                                </div>
+                                              )}
+                                              {!autoApplyEnabled && !directApplyEnabled && reviewRun && (
+                                                <div className="border-t pt-3 mt-4">
+                                                  <div className="flex gap-2">
+                                                    <Button
+                                                      size="sm"
+                                                      className="flex-1 text-xs h-8 bg-[#7C3AED] hover:bg-[#6D28D9]"
+                                                      onClick={() => handleAcceptFlag(selectedChildItem!.title)}
+                                                      disabled={acceptedFlags.includes(selectedChildItem!.title)}
+                                                    >
+                                                      {acceptedFlags.includes(selectedChildItem!.title) ? "Accepted" : "Accept change"}
+                                                    </Button>
+                                                    <Button
+                                                      size="sm"
+                                                      variant="outline"
+                                                      className="flex-1 text-xs h-8 border-[#7C3AED] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white"
+                                                      onClick={() => handlePreviewFlag(selectedChildItem!.title)}
+                                                      disabled={acceptedFlags.includes(selectedChildItem!.title)}
+                                                    >
+                                                      {previewedFlags.includes(selectedChildItem!.title) ? "Hide track changes" : "Preview in track changes"}
                                                 </Button>
                                               </div>
                                             </div>
