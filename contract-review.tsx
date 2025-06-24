@@ -78,6 +78,7 @@ export default function ContractReview() {
   const [previewedFlags, setPreviewedFlags] = useState<string[]>([])
   const [acceptedFlags, setAcceptedFlags] = useState<string[]>([])
   const [purpleUnderlines, setPurpleUnderlines] = useState<Record<string, boolean>>({})
+  const [suggestedFlags, setSuggestedFlags] = useState<string[]>([])
 
   // Edit navigation state
   const [currentEditIndex, setCurrentEditIndex] = useState<Record<string, number>>({})
@@ -161,6 +162,7 @@ export default function ContractReview() {
     setPreviewedFlags([])
     setAcceptedFlags([])
     setPurpleUnderlines({})
+    setSuggestedFlags([])
 
     // Count high and medium risk items
     const highRiskCount = [...ipProtectionItems, ...enforceabilityItems].filter(
@@ -1024,6 +1026,111 @@ export default function ContractReview() {
     }
   }
 
+  // Functions to handle individual flag actions
+  const handleSuggestWording = (flagTitle: string) => {
+    // Add to suggested flags
+    setSuggestedFlags(prev => [...prev, flagTitle])
+    
+    // Automatically apply track changes 
+    setPreviewedFlags(prev => [...prev, flagTitle])
+    
+    // Send a chat message explaining the change
+    const content = getContentForItem(flagTitle)
+    if (selectedChildItem) {
+      setChildItemMessages(prev => ({
+        ...prev,
+        [selectedChildItem.title]: [
+          ...(prev[selectedChildItem.title] || []),
+          {
+            id: Date.now().toString(),
+            type: "ai",
+            content: `I have updated ${getClauseForFlag(flagTitle)} to mitigate this potential risk.\n\nWhy this helps: ${content.why}`,
+          }
+        ]
+      }))
+    }
+  }
+
+  const getContentForItem = (title: string) => {
+    switch (title) {
+      case "Loophole: Unverified Prior Knowledge Claim":
+        return {
+          description: "Certain exclusions allow the Receiving Party to claim they already knew information without any proof, creating a potential loophole for misuse.",
+          original: "\"...information that is already known to the Receiving Party...\"",
+          suggested: "\"...information that is already known to the Receiving Party, as evidenced by written records created prior to disclosure.\"",
+          why: "Adds a documentation requirement, preventing false retrospective claims and preserving the NDA's enforceability."
+        }
+      case "Premature Exit: Unilateral Early Termination":
+        return {
+          description: "Allowing either party to terminate at will undermines the confidentiality period and could expose the Disclosing Party to post-termination misuse.",
+          original: "\"…unless terminated earlier by either party with 30 days' notice.\"",
+          suggested: "\"…unless terminated earlier by mutual written agreement or by the Disclosing Party with 30 days' notice.\"",
+          why: "Prevents the Receiving Party from exiting unilaterally while still in possession of sensitive information, giving the Disclosing Party more control."
+        }
+      case "Untrackable Oral Disclosures":
+        return {
+          description: "The agreement treats oral and written disclosures equally but provides no way to verify oral information was actually disclosed, making enforcement difficult.",
+          original: "\"…whether oral or written…\"",
+          suggested: "\"…whether oral or written, provided that oral disclosures are confirmed in writing and marked as confidential within 15 days.\"",
+          why: "Introduces a record-keeping requirement that strengthens evidentiary support for oral disclosures."
+        }
+      case "Vague Deadline: Unclear Return Timeline":
+        return {
+          description: "\"Reasonable period\" is subjective and could delay the return or destruction of sensitive materials.",
+          original: "\"…shall return or destroy all Confidential Information within a reasonable period.\"",
+          suggested: "\"…shall return or destroy all Confidential Information within 10 business days of termination of this Agreement.\"",
+          why: "Creates a clear, enforceable timeline, helping avoid disputes and delays."
+        }
+      case "Jurisdiction Gap: No Legal Venue Set":
+        return {
+          description: "The remedies clause allows for injunctive relief but does not specify the legal jurisdiction, opening the door to venue disputes.",
+          original: "\"The Disclosing Party is entitled to seek injunctive relief…\"",
+          suggested: "\"The Disclosing Party is entitled to seek injunctive relief in the courts of England and Wales [or relevant jurisdiction]…\"",
+          why: "Establishes where legal disputes will be resolved, ensuring smoother enforcement."
+        }
+      case "Incomplete Confidentiality Lifecycle Controls":
+        return {
+          description: "The NDA contains several strong protections for confidential information, but it still lacks unified lifecycle management. There's no explicit link between how confidential information is defined, handled during the agreement, and controlled after termination—leaving the contract potentially vulnerable to misinterpretation or non-compliance.",
+          original: "Multiple clauses need coordination",
+          suggested: "Updated clauses with lifecycle management",
+          why: "These edits close lifecycle gaps by aligning definition, handling, post-termination obligations, and enforcement of confidentiality duties. They prevent information from falling through procedural cracks and reduce risk exposure by coordinating obligations across multiple clauses."
+        }
+      default:
+        return {
+          description: "Risk description not found.",
+          original: "Original text not found.",
+          suggested: "Suggested text not found.",
+          why: "Benefit description not found."
+        }
+    }
+  }
+
+  const getClauseForFlag = (flagTitle: string) => {
+    switch (flagTitle) {
+      case "Loophole: Unverified Prior Knowledge Claim":
+        return "Clause 3 (Exclusions)"
+      case "Premature Exit: Unilateral Early Termination":
+        return "Clause 4 (Term)"
+      case "Untrackable Oral Disclosures":
+        return "Clause 1 (Confidential Information)"
+      case "Vague Deadline: Unclear Return Timeline":
+        return "Clause 5 (Return or Destruction)"
+      case "Jurisdiction Gap: No Legal Venue Set":
+        return "Clause 7 (Remedies)"
+      case "Incomplete Confidentiality Lifecycle Controls":
+        return "multiple clauses"
+      default:
+        return "the relevant clause"
+    }
+  }
+
+  const handleRejectFlag = (flagTitle: string) => {
+    // Remove from all related arrays
+    setPreviewedFlags(prev => prev.filter(flag => flag !== flagTitle))
+    setSuggestedFlags(prev => prev.filter(flag => flag !== flagTitle))
+    setAcceptedFlags(prev => prev.filter(flag => flag !== flagTitle))
+  }
+
   // Function to check if a document section should have purple margin highlight
   const shouldHighlightSection = (sectionName: string) => {
     if (!selectedChildItem) return false
@@ -1548,6 +1655,10 @@ export default function ContractReview() {
                         if (message.type === "ai") {
                           // Handle structured risk content
                           if (message.content === "structured-risk-content") {
+                            const flagTitle = "Loophole: Unverified Prior Knowledge Claim"
+                            const content = getContentForItem(flagTitle)
+                            const hasBeenSuggested = suggestedFlags.includes(flagTitle)
+                            
                             return (
                               <div
                                 key={message.id}
@@ -1562,87 +1673,25 @@ export default function ContractReview() {
                                   </div>
                                   <div className="flex-1 bg-gray-50 rounded-lg p-4">
                                     <div className="flex items-center justify-between mb-3">
-                                      <h3 className="font-medium text-gray-900">
-                                        Loophole: Unverified Prior Knowledge Claim
-                                      </h3>
+                                      <h3 className="font-medium text-gray-900">{flagTitle}</h3>
                                       <ChevronUp className="h-4 w-4 text-gray-400" />
                                     </div>
 
                                     <p className="text-sm text-gray-700 mb-4">
-                                      Certain exclusions allow the Receiving Party to claim they already knew
-                                      information without any proof, creating a potential loophole for misuse.
+                                      {content.description}
                                     </p>
 
-                                    <Tabs defaultValue="suggested" className="w-full">
-                                      <TabsList className="grid w-full grid-cols-2 bg-white">
-                                        <TabsTrigger value="original" className="text-sm">
-                                          Original
-                                        </TabsTrigger>
-                                        <TabsTrigger value="suggested" className="text-sm">
-                                          {directApplyEnabled ? "New wording" : "Suggested"}
-                                        </TabsTrigger>
-                                      </TabsList>
-
-                                      <TabsContent value="original" className="mt-3">
-                                        <div className="bg-white rounded-md p-3 border">
-                                          <p className="text-sm text-gray-700 italic">
-                                            "...information that is already known to the Receiving Party..."
-                                          </p>
-                                        </div>
-                                      </TabsContent>
-
-                                      <TabsContent value="suggested" className="mt-3">
-                                        <div className="bg-white rounded-md p-3 border">
-                                          <p className="text-sm text-gray-700 italic mb-3">
-                                            "...information that is already known to the Receiving Party, as evidenced
-                                            by written records created prior to disclosure."
-                                          </p>
-
-                                          <div className="border-t pt-3">
-                                            <p className="text-xs font-medium text-[#7C3AED] mb-1">Why this helps:</p>
-                                            <p className="text-xs text-gray-600">
-                                              Adds a documentation requirement, preventing false retrospective claims and
-                                              preserving the NDA's enforceability.
-                                            </p>
-                                          </div>
-                                          {directApplyEnabled && reviewRun && (
-                                            <div className="border-t pt-3 mt-3">
-                                              <Button
-                                                size="sm"
-                                                variant="outline"
-                                                className="text-xs h-7 px-3 border-gray-300 text-gray-600 hover:bg-gray-50"
-                                                onClick={() => handleUndoDirectApplication("Loophole: Unverified Prior Knowledge Claim")}
-                                              >
-                                                Undo
-                                              </Button>
-                                            </div>
-                                          )}
-                                          {!autoApplyEnabled && !directApplyEnabled && reviewRun && (
-                                            <div className="border-t pt-3 mt-3">
-                                              <div className="flex gap-2">
-                                                <Button
-                                                  size="sm"
-                                                  className="flex-1 text-xs h-8 bg-[#7C3AED] hover:bg-[#6D28D9]"
-                                                  onClick={() => handleAcceptFlag("Loophole: Unverified Prior Knowledge Claim")}
-                                                  disabled={acceptedFlags.includes("Loophole: Unverified Prior Knowledge Claim")}
-                                                >
-                                                  {acceptedFlags.includes("Loophole: Unverified Prior Knowledge Claim") ? "Accepted" : "Accept change"}
-                                                </Button>
-                                                <Button
-                                                  size="sm"
-                                                  variant="outline"
-                                                  className="flex-1 text-xs h-8 border-[#7C3AED] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white"
-                                                  onClick={() => handlePreviewFlag("Loophole: Unverified Prior Knowledge Claim")}
-                                                  disabled={acceptedFlags.includes("Loophole: Unverified Prior Knowledge Claim")}
-                                                >
-                                                  {previewedFlags.includes("Loophole: Unverified Prior Knowledge Claim") ? "Hide track changes" : "Preview in track changes"}
-                                                </Button>
-                                              </div>
-                                            </div>
-                                          )}
-                                        </div>
-                                      </TabsContent>
-                                    </Tabs>
+                                    {!hasBeenSuggested && !autoApplyEnabled && !directApplyEnabled && reviewRun && (
+                                      <div className="border-t pt-3">
+                                        <Button
+                                          size="sm"
+                                          className="w-full text-xs h-8 bg-[#7C3AED] hover:bg-[#6D28D9]"
+                                          onClick={() => handleSuggestWording(flagTitle)}
+                                        >
+                                          Suggest wording to mitigate risk
+                                        </Button>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -1651,54 +1700,9 @@ export default function ContractReview() {
 
                           // Handle placeholder structured content for other risk flags
                           if (message.content === "structured-risk-content-placeholder") {
-                            const getContentForItem = (title: string) => {
-                              switch (title) {
-                                case "Premature Exit: Unilateral Early Termination":
-                                  return {
-                                    description: "Allowing either party to terminate at will undermines the confidentiality period and could expose the Disclosing Party to post-termination misuse.",
-                                    original: "\"…unless terminated earlier by either party with 30 days' notice.\"",
-                                    suggested: "\"…unless terminated earlier by mutual written agreement or by the Disclosing Party with 30 days' notice.\"",
-                                    why: "Prevents the Receiving Party from exiting unilaterally while still in possession of sensitive information, giving the Disclosing Party more control."
-                                  }
-                                case "Untrackable Oral Disclosures":
-                                  return {
-                                    description: "The agreement treats oral and written disclosures equally but provides no way to verify oral information was actually disclosed, making enforcement difficult.",
-                                    original: "\"…whether oral or written…\"",
-                                    suggested: "\"…whether oral or written, provided that oral disclosures are confirmed in writing and marked as confidential within 15 days.\"",
-                                    why: "Introduces a record-keeping requirement that strengthens evidentiary support for oral disclosures."
-                                  }
-                                case "Vague Deadline: Unclear Return Timeline":
-                                  return {
-                                    description: "\"Reasonable period\" is subjective and could delay the return or destruction of sensitive materials.",
-                                    original: "\"…shall return or destroy all Confidential Information within a reasonable period.\"",
-                                    suggested: "\"…shall return or destroy all Confidential Information within 10 business days of termination of this Agreement.\"",
-                                    why: "Creates a clear, enforceable timeline, helping avoid disputes and delays."
-                                  }
-                                case "Jurisdiction Gap: No Legal Venue Set":
-                                  return {
-                                    description: "The remedies clause allows for injunctive relief but does not specify the legal jurisdiction, opening the door to venue disputes.",
-                                    original: "\"The Disclosing Party is entitled to seek injunctive relief…\"",
-                                    suggested: "\"The Disclosing Party is entitled to seek injunctive relief in the courts of England and Wales [or relevant jurisdiction]…\"",
-                                    why: "Establishes where legal disputes will be resolved, ensuring smoother enforcement."
-                                  }
-                                case "Incomplete Confidentiality Lifecycle Controls":
-                                  return {
-                                    description: "The NDA contains several strong protections for confidential information, but it still lacks unified lifecycle management. There's no explicit link between how confidential information is defined, handled during the agreement, and controlled after termination—leaving the contract potentially vulnerable to misinterpretation or non-compliance.",
-                                    original: "**Clause 2 – Obligations of Confidentiality**\n\"The Receiving Party agrees not to disclose, copy, or use the Confidential Information for any purpose other than evaluating a potential business relationship.\"\n\n**Clause 4 – Term**\n\"This Agreement shall remain in effect for two (2) years from the Effective Date, unless terminated earlier by either party with 30 days' notice.\"\n\n**Clause 5 – Return or Destruction**\n\"Upon termination, the Receiving Party shall return or destroy all Confidential Information within a reasonable period.\"\n\n**No additional lifecycle coordination clause currently exists.**",
-                                    suggested: "**Clause 2 – Obligations of Confidentiality**\nAdd: \"The Receiving Party shall implement reasonable administrative, technical, and physical safeguards to protect Confidential Information from unauthorized use or disclosure.\"\n\n**Clause 4 – Term**\nAdd: \"Notwithstanding any termination of this Agreement, the confidentiality obligations in Clause 2 shall survive for five (5) years from the date of disclosure of the relevant Confidential Information.\"\n\n**Clause 5 – Return or Destruction**\nAdd: \"The Receiving Party shall certify such destruction in writing. Backups containing Confidential Information shall also be deleted where feasible.\"\n\n**New Clause – Lifecycle of Confidential Information**\n\"The Parties agree that confidentiality obligations should be interpreted consistently across the Agreement, including identification, protection, and return of Confidential Information. In the event of ambiguity or conflict between clauses, the interpretation that provides the highest level of protection to the Disclosing Party shall apply.\"",
-                                    why: "These edits close lifecycle gaps by aligning definition, handling, post-termination obligations, and enforcement of confidentiality duties. They prevent information from falling through procedural cracks and reduce risk exposure by coordinating obligations across multiple clauses."
-                                  }
-                                default:
-                                  return {
-                                    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-                                    original: "\"Lorem ipsum dolor sit amet, consectetur adipiscing elit...\"",
-                                    suggested: "\"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\"",
-                                    why: "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-                                  }
-                              }
-                            }
-
-                            const content = getContentForItem(selectedChildItem?.title || "")
+                            const flagTitle = selectedChildItem?.title || ""
+                            const content = getContentForItem(flagTitle)
+                            const hasBeenSuggested = suggestedFlags.includes(flagTitle)
 
                             return (
                               <div
@@ -1722,131 +1726,24 @@ export default function ContractReview() {
                                       {content.description}
                                     </p>
 
-                                    <Tabs defaultValue="suggested" className="w-full">
-                                      <TabsList className="grid w-full grid-cols-2 bg-white">
-                                        <TabsTrigger value="original" className="text-sm">
-                                          Original
-                                        </TabsTrigger>
-                                        <TabsTrigger value="suggested" className="text-sm">
-                                          {directApplyEnabled ? "New wording" : "Suggested"}
-                                        </TabsTrigger>
-                                      </TabsList>
-
-                                      <TabsContent value="original" className="mt-3">
-                                        <div className="bg-white rounded-md p-3 border">
-                                          {selectedChildItem?.title === "Incomplete Confidentiality Lifecycle Controls" ? (
-                                            formatLifecycleContent(content.original)
-                                          ) : (
-                                            <p className="text-sm text-gray-700 italic">
-                                              {content.original}
-                                            </p>
-                                          )}
-                                        </div>
-                                      </TabsContent>
-
-                                      <TabsContent value="suggested" className="mt-3">
-                                        <div className="bg-white rounded-md p-3 border">
-                                          {selectedChildItem?.title === "Incomplete Confidentiality Lifecycle Controls" ? (
-                                            <>
-                                              {formatLifecycleContent(content.suggested)}
-                                              <div className="border-t pt-3 mt-4">
-                                                <p className="text-xs font-medium text-[#7C3AED] mb-1">Why this helps:</p>
-                                                <p className="text-xs text-gray-600">
-                                                  {content.why}
-                                                </p>
-                                              </div>
-                                              {directApplyEnabled && reviewRun && (
-                                                <div className="border-t pt-3 mt-4">
-                                                  <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="text-xs h-7 px-3 border-gray-300 text-gray-600 hover:bg-gray-50"
-                                                    onClick={() => handleUndoDirectApplication(selectedChildItem!.title)}
-                                                  >
-                                                    Undo
-                                                  </Button>
-                                                </div>
-                                              )}
-                                              {!autoApplyEnabled && !directApplyEnabled && reviewRun && (
-                                                <div className="border-t pt-3 mt-4">
-                                                  <div className="flex gap-2">
-                                                    <Button
-                                                      size="sm"
-                                                      className="flex-1 text-xs h-8 bg-[#7C3AED] hover:bg-[#6D28D9]"
-                                                      onClick={() => handleAcceptFlag(selectedChildItem!.title)}
-                                                      disabled={acceptedFlags.includes(selectedChildItem!.title)}
-                                                    >
-                                                      {acceptedFlags.includes(selectedChildItem!.title) ? "Accepted" : "Accept change"}
-                                                    </Button>
-                                                    <Button
-                                                      size="sm"
-                                                      variant="outline"
-                                                      className="flex-1 text-xs h-8 border-[#7C3AED] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white"
-                                                      onClick={() => handlePreviewFlag(selectedChildItem!.title)}
-                                                      disabled={acceptedFlags.includes(selectedChildItem!.title)}
-                                                    >
-                                                      {previewedFlags.includes(selectedChildItem!.title) ? "Hide track changes" : "Preview in track changes"}
-                                                    </Button>
-                                                  </div>
-                                                </div>
-                                              )}
-                                            </>
-                                          ) : (
-                                            <>
-                                              <p className="text-sm text-gray-700 italic mb-3">
-                                                {content.suggested}
-                                              </p>
-                                              <div className="border-t pt-3">
-                                                <p className="text-xs font-medium text-[#7C3AED] mb-1">Why this helps:</p>
-                                                <p className="text-xs text-gray-600">
-                                                  {content.why}
-                                                </p>
-                                              </div>
-                                              {directApplyEnabled && reviewRun && (
-                                                <div className="border-t pt-3 mt-3">
-                                                  <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="text-xs h-7 px-3 border-gray-300 text-gray-600 hover:bg-gray-50"
-                                                    onClick={() => handleUndoDirectApplication(selectedChildItem!.title)}
-                                                  >
-                                                    Undo
-                                                  </Button>
-                                                </div>
-                                              )}
-                                              {!autoApplyEnabled && !directApplyEnabled && reviewRun && (
-                                                <div className="border-t pt-3 mt-3">
-                                                  <div className="flex gap-2">
-                                                    <Button
-                                                      size="sm"
-                                                      className="flex-1 text-xs h-8 bg-[#7C3AED] hover:bg-[#6D28D9]"
-                                                      onClick={() => handleAcceptFlag(selectedChildItem!.title)}
-                                                      disabled={acceptedFlags.includes(selectedChildItem!.title)}
-                                                    >
-                                                      {acceptedFlags.includes(selectedChildItem!.title) ? "Accepted" : "Accept change"}
-                                                    </Button>
-                                                    <Button
-                                                      size="sm"
-                                                      variant="outline"
-                                                      className="flex-1 text-xs h-8 border-[#7C3AED] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white"
-                                                      onClick={() => handlePreviewFlag(selectedChildItem!.title)}
-                                                      disabled={acceptedFlags.includes(selectedChildItem!.title)}
-                                                    >
-                                                      {previewedFlags.includes(selectedChildItem!.title) ? "Hide track changes" : "Preview in track changes"}
-                                                    </Button>
-                                                  </div>
-                                                </div>
-                                              )}
-                                            </>
-                                          )}
-                                        </div>
-                                      </TabsContent>
-                                    </Tabs>
+                                    {!hasBeenSuggested && !autoApplyEnabled && !directApplyEnabled && reviewRun && (
+                                      <div className="border-t pt-3">
+                                        <Button
+                                          size="sm"
+                                          className="w-full text-xs h-8 bg-[#7C3AED] hover:bg-[#6D28D9]"
+                                          onClick={() => handleSuggestWording(flagTitle)}
+                                        >
+                                          Suggest wording to mitigate risk
+                                        </Button>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               </div>
                             )
                           }
+
+
 
                           // Regular AI messages (existing functionality)
                           return (
@@ -2117,54 +2014,9 @@ export default function ContractReview() {
 
                       // Handle placeholder structured content for other risk flags
                       if (message.content === "structured-risk-content-placeholder") {
-                        const getContentForItem = (title: string) => {
-                          switch (title) {
-                            case "Premature Exit: Unilateral Early Termination":
-                              return {
-                                description: "Allowing either party to terminate at will undermines the confidentiality period and could expose the Disclosing Party to post-termination misuse.",
-                                original: "\"…unless terminated earlier by either party with 30 days' notice.\"",
-                                suggested: "\"…unless terminated earlier by mutual written agreement or by the Disclosing Party with 30 days' notice.\"",
-                                why: "Prevents the Receiving Party from exiting unilaterally while still in possession of sensitive information, giving the Disclosing Party more control."
-                              }
-                            case "Untrackable Oral Disclosures":
-                              return {
-                                description: "The agreement treats oral and written disclosures equally but provides no way to verify oral information was actually disclosed, making enforcement difficult.",
-                                original: "\"…whether oral or written…\"",
-                                suggested: "\"…whether oral or written, provided that oral disclosures are confirmed in writing and marked as confidential within 15 days.\"",
-                                why: "Introduces a record-keeping requirement that strengthens evidentiary support for oral disclosures."
-                              }
-                            case "Vague Deadline: Unclear Return Timeline":
-                              return {
-                                description: "\"Reasonable period\" is subjective and could delay the return or destruction of sensitive materials.",
-                                original: "\"…shall return or destroy all Confidential Information within a reasonable period.\"",
-                                suggested: "\"…shall return or destroy all Confidential Information within 10 business days of termination of this Agreement.\"",
-                                why: "Creates a clear, enforceable timeline, helping avoid disputes and delays."
-                              }
-                            case "Jurisdiction Gap: No Legal Venue Set":
-                              return {
-                                description: "The remedies clause allows for injunctive relief but does not specify the legal jurisdiction, opening the door to venue disputes.",
-                                original: "\"The Disclosing Party is entitled to seek injunctive relief…\"",
-                                suggested: "\"The Disclosing Party is entitled to seek injunctive relief in the courts of England and Wales [or relevant jurisdiction]…\"",
-                                why: "Establishes where legal disputes will be resolved, ensuring smoother enforcement."
-                              }
-                            case "Incomplete Confidentiality Lifecycle Controls":
-                              return {
-                                description: "The NDA contains several strong protections for confidential information, but it still lacks unified lifecycle management. There's no explicit link between how confidential information is defined, handled during the agreement, and controlled after termination—leaving the contract potentially vulnerable to misinterpretation or non-compliance.",
-                                original: "**Clause 2 – Obligations of Confidentiality**\n\"The Receiving Party agrees not to disclose, copy, or use the Confidential Information for any purpose other than evaluating a potential business relationship.\"\n\n**Clause 4 – Term**\n\"This Agreement shall remain in effect for two (2) years from the Effective Date, unless terminated earlier by either party with 30 days' notice.\"\n\n**Clause 5 – Return or Destruction**\n\"Upon termination, the Receiving Party shall return or destroy all Confidential Information within a reasonable period.\"\n\n**No additional lifecycle coordination clause currently exists.**",
-                                suggested: "**Clause 2 – Obligations of Confidentiality**\nAdd: \"The Receiving Party shall implement reasonable administrative, technical, and physical safeguards to protect Confidential Information from unauthorized use or disclosure.\"\n\n**Clause 4 – Term**\nAdd: \"Notwithstanding any termination of this Agreement, the confidentiality obligations in Clause 2 shall survive for five (5) years from the date of disclosure of the relevant Confidential Information.\"\n\n**Clause 5 – Return or Destruction**\nAdd: \"The Receiving Party shall certify such destruction in writing. Backups containing Confidential Information shall also be deleted where feasible.\"\n\n**New Clause – Lifecycle of Confidential Information**\n\"The Parties agree that confidentiality obligations should be interpreted consistently across the Agreement, including identification, protection, and return of Confidential Information. In the event of ambiguity or conflict between clauses, the interpretation that provides the highest level of protection to the Disclosing Party shall apply.\"",
-                                why: "These edits close lifecycle gaps by aligning definition, handling, post-termination obligations, and enforcement of confidentiality duties. They prevent information from falling through procedural cracks and reduce risk exposure by coordinating obligations across multiple clauses."
-                              }
-                            default:
-                              return {
-                                description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-                                original: "\"Lorem ipsum dolor sit amet, consectetur adipiscing elit...\"",
-                                suggested: "\"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\"",
-                                why: "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-                              }
-                          }
-                        }
-
-                        const content = getContentForItem(selectedChildItem?.title || "")
+                        const flagTitle = selectedChildItem?.title || ""
+                        const content = getContentForItem(flagTitle)
+                        const hasBeenSuggested = suggestedFlags.includes(flagTitle)
 
                         return (
                           <div
