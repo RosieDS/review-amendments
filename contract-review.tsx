@@ -1375,38 +1375,59 @@ export default function ContractReview() {
           {currentTab === "todo" && reviewRun && getCurrentList().length > 0 && (
             <div className="p-3 border-t border-gray-200">
               <div className="flex flex-col gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full h-8 text-xs border-[#7C3AED] text-[#7C3AED] hover:bg-[#F9F5FF] hover:text-[#7C3AED]"
-                  onClick={handleToggleAllTrackChanges}
-                >
-                  <GitCompare className="mr-2 h-3 w-3" />
-                  {(() => {
-                    const allUnresolvedItems = [...ipProtectionItems, ...enforceabilityItems].filter(
-                      (item) => !resolvedItems.includes(item.title),
+                {(() => {
+                  const allUnresolvedItems = [...ipProtectionItems, ...enforceabilityItems].filter(
+                    (item) => !resolvedItems.includes(item.title),
+                  )
+                  const allUnresolvedTitles = allUnresolvedItems.map((item) => item.title)
+                  const allPreviewed = allUnresolvedTitles.every(title => previewedFlags.includes(title))
+                  
+                  if (!allPreviewed) {
+                    // Show only Preview button initially
+                    return (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full h-8 text-xs border-[#7C3AED] text-[#7C3AED] hover:bg-[#F9F5FF] hover:text-[#7C3AED]"
+                        onClick={handleToggleAllTrackChanges}
+                      >
+                        <GitCompare className="mr-2 h-3 w-3" />
+                        Preview in Track Changes
+                      </Button>
                     )
-                    const allUnresolvedTitles = allUnresolvedItems.map((item) => item.title)
-                    const allPreviewed = allUnresolvedTitles.every(title => previewedFlags.includes(title))
-                    return allPreviewed ? "Hide track changes" : "Preview in Track Changes"
-                  })()}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full h-8 text-xs border-[#7C3AED] text-[#7C3AED] hover:bg-[#F9F5FF] hover:text-[#7C3AED]"
-                  onClick={() => {
-                    // Accept all unresolved flags
-                    const allUnresolvedItems = [...ipProtectionItems, ...enforceabilityItems].filter(
-                      (item) => !resolvedItems.includes(item.title),
+                  } else {
+                    // Show Reject and Accept buttons side by side
+                    return (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 h-8 text-xs border-red-300 text-red-600 hover:bg-red-50"
+                          onClick={() => {
+                            // Reject all - hide track changes and reset flags
+                            setPreviewedFlags([])
+                            setSuggestedFlags([])
+                            setAcceptedFlags([])
+                          }}
+                        >
+                          Reject
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 h-8 text-xs border-green-600 text-green-600 hover:bg-green-50"
+                          onClick={() => {
+                            // Accept all unresolved flags
+                            setAcceptedFlags(allUnresolvedItems.map((item) => item.title))
+                            setResolvedItems((prev) => [...prev, ...allUnresolvedItems.map((item) => item.title)])
+                          }}
+                        >
+                          Accept
+                        </Button>
+                      </div>
                     )
-                    setAcceptedFlags(allUnresolvedItems.map((item) => item.title))
-                    setResolvedItems((prev) => [...prev, ...allUnresolvedItems.map((item) => item.title)])
-                  }}
-                >
-                  <CheckCircle2 className="mr-2 h-3 w-3" />
-                  Accept All Changes
-                </Button>
+                  }
+                })()}
               </div>
               
               {/* Mark all as reviewed checkbox */}
