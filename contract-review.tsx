@@ -18,7 +18,7 @@ import {
 } from "lucide-react"
 import { ReviewConfigForm } from "./components/review-config-form"
 import { motion, AnimatePresence } from "framer-motion"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+
 import { ChevronUp } from "lucide-react"
 
 interface Message {
@@ -1044,7 +1044,7 @@ export default function ContractReview() {
           {
             id: Date.now().toString(),
             type: "ai",
-            content: `I have updated ${getClauseForFlag(flagTitle)} to mitigate this potential risk.\n\nWhy this helps: ${content.why}`,
+            content: `I have updated ${getClauseForFlag(flagTitle)} to mitigate this potential loophole for misuse.\n\nWhy this helps:\n${content.why}\n\nIf you'd like to tweak the suggested wording, just let me know.`,
           }
         ]
       }))
@@ -1936,76 +1936,15 @@ export default function ContractReview() {
                                   without any proof, creating a potential loophole for misuse.
                                 </p>
 
-                                <Tabs defaultValue="suggested" className="w-full">
-                                  <TabsList className="grid w-full grid-cols-2 bg-white">
-                                    <TabsTrigger value="original" className="text-sm">
-                                      Original
-                                    </TabsTrigger>
-                                    <TabsTrigger value="suggested" className="text-sm">
-                                      {directApplyEnabled ? "New wording" : "Suggested"}
-                                    </TabsTrigger>
-                                  </TabsList>
-
-                                  <TabsContent value="original" className="mt-3">
-                                    <div className="bg-white rounded-md p-3 border">
-                                      <p className="text-sm text-gray-700 italic">
-                                        "...information that is already known to the Receiving Party..."
-                                      </p>
-                                    </div>
-                                  </TabsContent>
-
-                                  <TabsContent value="suggested" className="mt-3">
-                                    <div className="bg-white rounded-md p-3 border">
-                                      <p className="text-sm text-gray-700 italic mb-3">
-                                        "...information that is already known to the Receiving Party, as evidenced by
-                                        written records created prior to disclosure."
-                                      </p>
-
-                                      <div className="border-t pt-3">
-                                        <p className="text-xs font-medium text-[#7C3AED] mb-1">Why this helps:</p>
-                                        <p className="text-xs text-gray-600">
-                                          Adds a documentation requirement, preventing false retrospective claims and
-                                          preserving the NDA's enforceability.
-                                        </p>
-                                      </div>
-                                      {directApplyEnabled && reviewRun && (
-                                        <div className="border-t pt-3 mt-3">
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="text-xs h-7 px-3 border-gray-300 text-gray-600 hover:bg-gray-50"
-                                            onClick={() => handleUndoDirectApplication("Loophole: Unverified Prior Knowledge Claim")}
-                                          >
-                                            Undo
-                                          </Button>
-                                        </div>
-                                      )}
-                                      {!autoApplyEnabled && !directApplyEnabled && reviewRun && (
-                                        <div className="border-t pt-3 mt-3">
-                                          <div className="flex gap-2">
-                                            <Button
-                                              size="sm"
-                                              className="flex-1 text-xs h-8 bg-[#7C3AED] hover:bg-[#6D28D9]"
-                                              onClick={() => handleAcceptFlag("Loophole: Unverified Prior Knowledge Claim")}
-                                              disabled={acceptedFlags.includes("Loophole: Unverified Prior Knowledge Claim")}
-                                            >
-                                              {acceptedFlags.includes("Loophole: Unverified Prior Knowledge Claim") ? "Accepted" : "Accept change"}
-                                            </Button>
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              className="flex-1 text-xs h-8 border-[#7C3AED] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white"
-                                              onClick={() => handlePreviewFlag("Loophole: Unverified Prior Knowledge Claim")}
-                                              disabled={acceptedFlags.includes("Loophole: Unverified Prior Knowledge Claim")}
-                                            >
-                                              {previewedFlags.includes("Loophole: Unverified Prior Knowledge Claim") ? "Hide track changes" : "Preview in track changes"}
-                                            </Button>
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </TabsContent>
-                                </Tabs>
+                                {!suggestedFlags.includes("Loophole: Unverified Prior Knowledge Claim") && (
+                                  <Button
+                                    size="sm"
+                                    className="w-full text-xs h-8 bg-[#7C3AED] hover:bg-[#6D28D9] text-white"
+                                    onClick={() => handleSuggestWording("Loophole: Unverified Prior Knowledge Claim")}
+                                  >
+                                    Suggest wording to mitigate risk
+                                  </Button>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -2040,126 +1979,15 @@ export default function ContractReview() {
                                   {content.description}
                                 </p>
 
-                                <Tabs defaultValue="suggested" className="w-full">
-                                  <TabsList className="grid w-full grid-cols-2 bg-white">
-                                    <TabsTrigger value="original" className="text-sm">
-                                      Original
-                                    </TabsTrigger>
-                                    <TabsTrigger value="suggested" className="text-sm">
-                                      {directApplyEnabled ? "New wording" : "Suggested"}
-                                    </TabsTrigger>
-                                  </TabsList>
-
-                                  <TabsContent value="original" className="mt-3">
-                                    <div className="bg-white rounded-md p-3 border">
-                                      {selectedChildItem?.title === "Incomplete Confidentiality Lifecycle Controls" ? (
-                                        formatLifecycleContent(content.original)
-                                      ) : (
-                                        <p className="text-sm text-gray-700 italic">
-                                          {content.original}
-                                        </p>
-                                      )}
-                                    </div>
-                                  </TabsContent>
-
-                                  <TabsContent value="suggested" className="mt-3">
-                                    <div className="bg-white rounded-md p-3 border">
-                                      {selectedChildItem?.title === "Incomplete Confidentiality Lifecycle Controls" ? (
-                                        <>
-                                          {formatLifecycleContent(content.suggested)}
-                                          <div className="border-t pt-3 mt-4">
-                                            <p className="text-xs font-medium text-[#7C3AED] mb-1">Why this helps:</p>
-                                            <p className="text-xs text-gray-600">
-                                              {content.why}
-                                            </p>
-                                          </div>
-                                          {directApplyEnabled && reviewRun && (
-                                            <div className="border-t pt-3 mt-4">
-                                              <Button
-                                                size="sm"
-                                                variant="outline"
-                                                className="text-xs h-7 px-3 border-gray-300 text-gray-600 hover:bg-gray-50"
-                                                                                                    onClick={() => handleUndoDirectApplication(selectedChildItem!.title)}
-                                                  >
-                                                    Undo
-                                                  </Button>
-                                                </div>
-                                              )}
-                                              {!autoApplyEnabled && !directApplyEnabled && reviewRun && (
-                                                <div className="border-t pt-3 mt-4">
-                                                  <div className="flex gap-2">
-                                                    <Button
-                                                      size="sm"
-                                                      className="flex-1 text-xs h-8 bg-[#7C3AED] hover:bg-[#6D28D9]"
-                                                      onClick={() => handleAcceptFlag(selectedChildItem!.title)}
-                                                      disabled={acceptedFlags.includes(selectedChildItem!.title)}
-                                                    >
-                                                      {acceptedFlags.includes(selectedChildItem!.title) ? "Accepted" : "Accept change"}
-                                                    </Button>
-                                                    <Button
-                                                      size="sm"
-                                                      variant="outline"
-                                                      className="flex-1 text-xs h-8 border-[#7C3AED] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white"
-                                                      onClick={() => handlePreviewFlag(selectedChildItem!.title)}
-                                                      disabled={acceptedFlags.includes(selectedChildItem!.title)}
-                                                    >
-                                                      {previewedFlags.includes(selectedChildItem!.title) ? "Hide track changes" : "Preview in track changes"}
-                                                </Button>
-                                              </div>
-                                            </div>
-                                          )}
-                                        </>
-                                      ) : (
-                                        <>
-                                          <p className="text-sm text-gray-700 italic mb-3">
-                                            {content.suggested}
-                                          </p>
-                                          <div className="border-t pt-3">
-                                            <p className="text-xs font-medium text-[#7C3AED] mb-1">Why this helps:</p>
-                                            <p className="text-xs text-gray-600">
-                                              {content.why}
-                                            </p>
-                                          </div>
-                                          {directApplyEnabled && reviewRun && (
-                                            <div className="border-t pt-3 mt-3">
-                                              <Button
-                                                size="sm"
-                                                variant="outline"
-                                                className="text-xs h-7 px-3 border-gray-300 text-gray-600 hover:bg-gray-50"
-                                                onClick={() => handleUndoDirectApplication(selectedChildItem.title)}
-                                              >
-                                                Undo
-                                              </Button>
-                                            </div>
-                                          )}
-                                          {!autoApplyEnabled && !directApplyEnabled && reviewRun && (
-                                            <div className="border-t pt-3 mt-3">
-                                              <div className="flex gap-2">
-                                                <Button
-                                                  size="sm"
-                                                  className="flex-1 text-xs h-8 bg-[#7C3AED] hover:bg-[#6D28D9]"
-                                                  onClick={() => handleAcceptFlag(selectedChildItem.title)}
-                                                  disabled={acceptedFlags.includes(selectedChildItem.title)}
-                                                >
-                                                  {acceptedFlags.includes(selectedChildItem.title) ? "Accepted" : "Accept change"}
-                                                </Button>
-                                                <Button
-                                                  size="sm"
-                                                  variant="outline"
-                                                  className="flex-1 text-xs h-8 border-[#7C3AED] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white"
-                                                  onClick={() => handlePreviewFlag(selectedChildItem.title)}
-                                                  disabled={acceptedFlags.includes(selectedChildItem.title)}
-                                                >
-                                                  {previewedFlags.includes(selectedChildItem.title) ? "Hide track changes" : "Preview in track changes"}
-                                                </Button>
-                                              </div>
-                                            </div>
-                                          )}
-                                        </>
-                                      )}
-                                    </div>
-                                  </TabsContent>
-                                </Tabs>
+                                {!hasBeenSuggested && (
+                                  <Button
+                                    size="sm"
+                                    className="w-full text-xs h-8 bg-[#7C3AED] hover:bg-[#6D28D9] text-white"
+                                    onClick={() => handleSuggestWording(flagTitle)}
+                                  >
+                                    Suggest wording to mitigate risk
+                                  </Button>
+                                )}
                               </div>
                             </div>
                           </div>
