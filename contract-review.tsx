@@ -1417,9 +1417,8 @@ export default function ContractReview() {
                           size="sm"
                           className="flex-1 h-8 text-xs border-green-600 text-green-600 hover:bg-green-50"
                           onClick={() => {
-                            // Accept all unresolved flags
+                            // Accept all track changes but keep flags visible in the list
                             setAcceptedFlags(allUnresolvedItems.map((item) => item.title))
-                            setResolvedItems((prev) => [...prev, ...allUnresolvedItems.map((item) => item.title)])
                           }}
                         >
                           Accept
