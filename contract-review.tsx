@@ -79,6 +79,7 @@ export default function ContractReview() {
   const [acceptedFlags, setAcceptedFlags] = useState<string[]>([])
   const [purpleUnderlines, setPurpleUnderlines] = useState<Record<string, boolean>>({})
   const [suggestedFlags, setSuggestedFlags] = useState<string[]>([])
+  const [reviewChatSaved, setReviewChatSaved] = useState<boolean>(false)
 
   // Edit navigation state
   const [currentEditIndex, setCurrentEditIndex] = useState<Record<string, number>>({})
@@ -163,6 +164,7 @@ export default function ContractReview() {
     setAcceptedFlags([])
     setPurpleUnderlines({})
     setSuggestedFlags([])
+    setReviewChatSaved(false) // Reset review chat saved flag
 
     // Count high and medium risk items
     const highRiskCount = [...ipProtectionItems, ...enforceabilityItems].filter(
@@ -174,7 +176,7 @@ export default function ContractReview() {
     ).length
 
     // Add a summary message to the active chat and save it to history
-    if (activeChat && (activeChat.title === "Run AI Review" || activeChat.title === "Re-Run Review")) {
+    if (activeChat && (activeChat.title === "Run AI Review" || activeChat.title === "Re-Run Review") && !reviewChatSaved) {
       setActiveChat((prev) => {
         if (!prev) return null
 
@@ -202,6 +204,7 @@ export default function ContractReview() {
         // Add to history now that the review is complete with all user inputs
         if (!addedChatIds.has(prev.id)) {
           addChatToHistory(completedChat)
+          setReviewChatSaved(true) // Mark as saved to prevent duplicates
         }
 
         return completedChat
@@ -219,26 +222,35 @@ export default function ContractReview() {
 
   // Function to add a chat to history
   const addChatToHistory = (chat: ChatThread) => {
-    // Only add if not already in history
-    if (!addedChatIds.has(chat.id)) {
-      setResolvedChats((prev) => [
-        ...prev,
-        {
-          ...chat,
-          resolvedAt: new Date(),
-        },
-      ])
+    // Only add if not already in history and has meaningful content
+    if (!addedChatIds.has(chat.id) && chat.messages.length > 0) {
+      // Extra check to prevent duplicates by title for review chats
+      const isDuplicateReview = chat.title.startsWith("AI Review") && 
+        resolvedChats.some(existingChat => 
+          existingChat.title.startsWith("AI Review") && 
+          Math.abs(new Date(existingChat.createdAt).getTime() - new Date(chat.createdAt).getTime()) < 60000 // Within 1 minute
+        )
+      
+      if (!isDuplicateReview) {
+        setResolvedChats((prev) => [
+          ...prev,
+          {
+            ...chat,
+            resolvedAt: new Date(),
+          },
+        ])
 
-      // Add the ID to our tracking set
-      setAddedChatIds((prev) => new Set(prev).add(chat.id))
+        // Add the ID to our tracking set
+        setAddedChatIds((prev) => new Set(prev).add(chat.id))
 
-      // Trigger animation for chat history
-      setAnimateChatHistory(true)
+        // Trigger animation for chat history
+        setAnimateChatHistory(true)
 
-      // Reset animation flag after a longer delay to accommodate the slower animation
-      setTimeout(() => {
-        setAnimateChatHistory(false)
-      }, 3500)
+        // Reset animation flag after a longer delay to accommodate the slower animation
+        setTimeout(() => {
+          setAnimateChatHistory(false)
+        }, 3500)
+      }
     }
   }
 
@@ -614,6 +626,9 @@ export default function ContractReview() {
 
   // Modify the handleRunReview function to open a new chat instead of immediately running the review
   const handleRunReview = () => {
+    // Reset review chat saved flag for new review
+    setReviewChatSaved(false)
+    
     // Create a new chat for configuring the review
     const newChat: ChatThread = {
       id: Date.now().toString(),
