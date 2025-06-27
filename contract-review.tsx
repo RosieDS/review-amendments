@@ -302,9 +302,7 @@ export default function ContractReview() {
         }
         setActiveChat(newChat)
 
-        // Add to history immediately
-        addChatToHistory(newChat)
-
+        // Don't add regular chats to history immediately - they'll be added when closed or completed
         // Switch to the "done" tab to show history
         setCurrentTab("done")
       }
@@ -324,14 +322,7 @@ export default function ContractReview() {
             messages: [...prev.messages, userMessage, aiResponse],
           }
 
-          // If this is the first message in a new chat, add it to history
-          if (prev.messages.length === 0 && !addedChatIds.has(prev.id)) {
-            // Add to history
-            addChatToHistory(updatedChat)
-
-            // Switch to the "done" tab to show history
-            setCurrentTab("done")
-          }
+          // Don't add to history immediately - will be added when chat is closed or completed
 
           return updatedChat
         }
@@ -412,7 +403,15 @@ export default function ContractReview() {
 
   const handleCloseChat = () => {
     if (activeChat) {
-      // No need to add to history again - we're now using the addedChatIds Set to track this
+      // Add non-review chats to history when closed (if they have messages and aren't already saved)
+      if (activeChat.messages.length > 0 && 
+          !addedChatIds.has(activeChat.id) && 
+          activeChat.title !== "Run AI Review" && 
+          activeChat.title !== "Re-Run Review" &&
+          !activeChat.title.startsWith("AI Review -")) {
+        addChatToHistory(activeChat)
+      }
+      
       setActiveChat(null)
 
       // Show the bottom panel and focus on the done tab
