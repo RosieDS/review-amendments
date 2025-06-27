@@ -202,7 +202,7 @@ export default function ContractReview() {
         }
 
         // Add to history now that the review is complete with all user inputs
-        if (!addedChatIds.has(prev.id)) {
+        if (!addedChatIds.has(prev.id) && !reviewChatSaved) {
           addChatToHistory(completedChat)
           setReviewChatSaved(true) // Mark as saved to prevent duplicates
         }
@@ -226,10 +226,10 @@ export default function ContractReview() {
     if (!addedChatIds.has(chat.id) && chat.messages.length > 0) {
       // Extra check to prevent duplicates by title for review chats
       const isDuplicateReview = chat.title.startsWith("AI Review") && 
-        resolvedChats.some(existingChat => 
+        (reviewChatSaved || resolvedChats.some(existingChat => 
           existingChat.title.startsWith("AI Review") && 
           Math.abs(new Date(existingChat.createdAt).getTime() - new Date(chat.createdAt).getTime()) < 60000 // Within 1 minute
-        )
+        ))
       
       if (!isDuplicateReview) {
         setResolvedChats((prev) => [
@@ -420,7 +420,8 @@ export default function ContractReview() {
           !addedChatIds.has(activeChat.id) && 
           activeChat.title !== "Run AI Review" && 
           activeChat.title !== "Re-Run Review" &&
-          !activeChat.title.startsWith("AI Review -")) {
+          !activeChat.title.startsWith("AI Review -") &&
+          !reviewChatSaved) { // Extra check to prevent saving already-saved review chats
         addChatToHistory(activeChat)
       }
       
