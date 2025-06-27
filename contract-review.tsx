@@ -80,6 +80,35 @@ export default function ContractReview() {
   const [purpleUnderlines, setPurpleUnderlines] = useState<Record<string, boolean>>({})
   const [suggestedFlags, setSuggestedFlags] = useState<string[]>([])
   const [reviewChatSaved, setReviewChatSaved] = useState<boolean>(false)
+  const [todoChats, setTodoChats] = useState<ChatThread[]>([])
+
+  // Function to clean up duplicate review chats
+  const cleanupDuplicateReviewChats = () => {
+    setResolvedChats((prev) => {
+      // Keep only the most recent AI Review chat
+      const reviewChats = prev.filter(chat => chat.title.startsWith("AI Review"))
+      const nonReviewChats = prev.filter(chat => !chat.title.startsWith("AI Review"))
+      
+      if (reviewChats.length <= 1) {
+        return prev // No duplicates to clean up
+      }
+      
+      // Sort by creation date and keep only the most recent
+      const mostRecentReviewChat = reviewChats.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )[0]
+      
+      // Update addedChatIds to remove the IDs of removed chats
+      const removedChatIds = reviewChats.filter(chat => chat.id !== mostRecentReviewChat.id).map(chat => chat.id)
+      setAddedChatIds(prev => {
+        const newSet = new Set(prev)
+        removedChatIds.forEach(id => newSet.delete(id))
+        return newSet
+      })
+      
+      return [...nonReviewChats, mostRecentReviewChat]
+    })
+  }
 
   // Edit navigation state
   const [currentEditIndex, setCurrentEditIndex] = useState<Record<string, number>>({})
@@ -130,6 +159,11 @@ export default function ContractReview() {
     }
   }, [isResizing])
 
+  // Clean up duplicate review chats on component mount
+  useEffect(() => {
+    cleanupDuplicateReviewChats()
+  }, [])
+
   const toggleLeftPanel = () => {
     setShowLeftPanel((prev) => !prev)
   }
@@ -164,7 +198,6 @@ export default function ContractReview() {
     setAcceptedFlags([])
     setPurpleUnderlines({})
     setSuggestedFlags([])
-    setReviewChatSaved(false) // Reset review chat saved flag
 
     // Count high and medium risk items
     const highRiskCount = [...ipProtectionItems, ...enforceabilityItems].filter(
@@ -175,8 +208,12 @@ export default function ContractReview() {
       (item) => item.severity === "Medium" && !resolvedItems.includes(item.title),
     ).length
 
-    // Add a summary message to the active chat and save it to history
-    if (activeChat && (activeChat.title === "Run AI Review" || activeChat.title === "Re-Run Review") && !reviewChatSaved) {
+    // Add a summary message to the active chat and save it to history ONLY if not already saved
+    if (activeChat && 
+        (activeChat.title === "Run AI Review" || activeChat.title === "Re-Run Review") && 
+        !reviewChatSaved && 
+        !addedChatIds.has(activeChat.id)) {
+      
       setActiveChat((prev) => {
         if (!prev) return null
 
@@ -202,10 +239,8 @@ export default function ContractReview() {
         }
 
         // Add to history now that the review is complete with all user inputs
-        if (!addedChatIds.has(prev.id) && !reviewChatSaved) {
-          addChatToHistory(completedChat)
-          setReviewChatSaved(true) // Mark as saved to prevent duplicates
-        }
+        addChatToHistory(completedChat)
+        setReviewChatSaved(true) // Mark as saved to prevent duplicates
 
         return completedChat
       })
@@ -226,10 +261,10 @@ export default function ContractReview() {
     if (!addedChatIds.has(chat.id) && chat.messages.length > 0) {
       // Extra check to prevent duplicates by title for review chats
       const isDuplicateReview = chat.title.startsWith("AI Review") && 
-        (reviewChatSaved || resolvedChats.some(existingChat => 
+        resolvedChats.some(existingChat => 
           existingChat.title.startsWith("AI Review") && 
           Math.abs(new Date(existingChat.createdAt).getTime() - new Date(chat.createdAt).getTime()) < 60000 // Within 1 minute
-        ))
+        )
       
       if (!isDuplicateReview) {
         setResolvedChats((prev) => [
@@ -420,8 +455,7 @@ export default function ContractReview() {
           !addedChatIds.has(activeChat.id) && 
           activeChat.title !== "Run AI Review" && 
           activeChat.title !== "Re-Run Review" &&
-          !activeChat.title.startsWith("AI Review -") &&
-          !reviewChatSaved) { // Extra check to prevent saving already-saved review chats
+          !activeChat.title.startsWith("AI Review")) { // Simplified check - don't save any review chats here
         addChatToHistory(activeChat)
       }
       
@@ -630,6 +664,9 @@ export default function ContractReview() {
     // Reset review chat saved flag for new review
     setReviewChatSaved(false)
     
+    // Clean up any existing duplicate review chats before starting new review
+    cleanupDuplicateReviewChats()
+    
     // Create a new chat for configuring the review
     const newChat: ChatThread = {
       id: Date.now().toString(),
@@ -647,7 +684,8 @@ export default function ContractReview() {
 
     // If there's an active chat that's NOT a review chat, save it to resolved chats
     if (activeChat && !activeChat.fromHistory && !addedChatIds.has(activeChat.id) && 
-        activeChat.title !== "Run AI Review" && activeChat.title !== "Re-Run Review") {
+        activeChat.title !== "Run AI Review" && activeChat.title !== "Re-Run Review" &&
+        !activeChat.title.startsWith("AI Review")) {
       addChatToHistory(activeChat)
     }
 
@@ -1219,42 +1257,43 @@ export default function ContractReview() {
               </button>
             </div>
 
-            <div className="w-full">
+          </div>
+
+          {/* Tabs and New Chat button on same line */}
+          <div className="border-b border-gray-200">
+            <div className="flex items-center justify-between px-3 py-2">
+              <div className="flex">
+                <button
+                  className={`px-3 py-2 text-xs font-medium ${currentTab === "todo" ? "text-[#7C3AED] border-b-2 border-[#7C3AED]" : "text-gray-500"}`}
+                  onClick={() => setCurrentTab("todo")}
+                >
+                  To Do {reviewRun ? allTasks.filter((item) => !resolvedItems.includes(item.title)).length + todoChats.length : todoChats.length}
+                </button>
+                <button
+                  className={`px-3 py-2 text-xs font-medium ${currentTab === "done" ? "text-[#7C3AED] border-b-2 border-[#7C3AED]" : "text-gray-500"}`}
+                  onClick={() => setCurrentTab("done")}
+                >
+                  History {resolvedChats.length + resolvedItems.length}
+                </button>
+              </div>
               <Button
-                className="w-full h-9 bg-[#7C3AED] text-white hover:bg-[#6D28D9] rounded-full flex items-center justify-center"
+                className="h-7 bg-[#7C3AED] text-white hover:bg-[#6D28D9] rounded-full flex items-center justify-center px-3"
                 onClick={() => {
-                  setActiveChat({
+                  const newChat = {
                     id: Date.now().toString(),
                     title: "New chat",
                     messages: [],
                     createdAt: new Date(),
-                  })
+                  }
+                  setTodoChats(prev => [...prev, newChat])
+                  setActiveChat(newChat)
                   setShowBottomPanel(false)
-                  setCurrentTab("done")
+                  setCurrentTab("todo")
                 }}
                 data-testid="new-chat-button"
               >
-                <Plus className="mr-2 h-5 w-5" /> New Chat
+                <Plus className="mr-1 h-4 w-4" /> New Chat
               </Button>
-            </div>
-          </div>
-
-          {/* Rest of the expanded left panel content remains the same */}
-          {/* Tabs */}
-          <div className="border-b border-gray-200">
-            <div className="flex">
-              <button
-                className={`px-3 py-2 text-xs font-medium ${currentTab === "todo" ? "text-[#7C3AED] border-b-2 border-[#7C3AED]" : "text-gray-500"}`}
-                onClick={() => setCurrentTab("todo")}
-              >
-                To Review {reviewRun ? allTasks.filter((item) => !resolvedItems.includes(item.title)).length : 0}
-              </button>
-              <button
-                className={`px-3 py-2 text-xs font-medium ${currentTab === "done" ? "text-[#7C3AED] border-b-2 border-[#7C3AED]" : "text-gray-500"}`}
-                onClick={() => setCurrentTab("done")}
-              >
-                History {resolvedChats.length + resolvedItems.length}
-              </button>
             </div>
           </div>
 
@@ -1279,35 +1318,90 @@ export default function ContractReview() {
           {/* Tasks list */}
           <div className="flex-1 overflow-auto" data-testid="tasks-list-container">
             <div className="px-3 py-2" data-testid="tasks-list">
-              {currentTab === "todo" && reviewRun ? (
+              {currentTab === "todo" ? (
                 <>
-                  {getCurrentList().map((item, index) => (
+                  {/* Show todo chats first */}
+                  {todoChats.map((chat, index) => (
                     <motion.div
-                      key={index}
+                      key={chat.id}
                       className="py-2 border-b border-gray-100"
-                      data-testid={`risk-item-${item.title.replace(/\s+/g, "-").toLowerCase()}`}
+                      data-testid={`todo-chat-${chat.id}`}
                       custom={index}
-                      initial={animateRiskItems ? "hidden" : "visible"}
+                      initial="visible"
                       animate="visible"
                       variants={riskItemAnimationVariants}
                     >
                       <div
                         className="rounded-lg p-2 transition-colors hover:bg-gray-50 cursor-pointer"
-                        onClick={() => openChildItemChat(item)}
+                        onClick={() => {
+                          setActiveChat(chat)
+                          setShowBottomPanel(false)
+                        }}
                       >
-                        <div className="flex items-start gap-2">
-                          <div
-                            className={`h-2 w-2 mt-1.5 rounded-full flex-shrink-0 ${
-                              item.severity === "High" ? "bg-red-500" : "bg-yellow-400"
-                            }`}
-                          />
+                        <div className="flex items-center gap-2">
+                          <MessageSquare className="h-3 w-3 text-[#7C3AED] flex-shrink-0" />
                           <div className="flex-1">
-                            <div className="font-medium text-gray-900 text-xs">{item.title}</div>
+                            <div className="font-medium text-gray-900 text-xs">{chat.title}</div>
                           </div>
                         </div>
                       </div>
                     </motion.div>
                   ))}
+
+                  {/* Show AI Review Results section if review has been run */}
+                  {reviewRun && getCurrentList().length > 0 && (
+                    <>
+                      <div className="py-2 px-2">
+                        <div className="text-xs font-semibold text-gray-700 mb-2">AI Review Results</div>
+                      </div>
+                      {getCurrentList().map((item, index) => (
+                        <motion.div
+                          key={index}
+                          className="py-2 border-b border-gray-100 ml-2"
+                          data-testid={`risk-item-${item.title.replace(/\s+/g, "-").toLowerCase()}`}
+                          custom={index}
+                          initial={animateRiskItems ? "hidden" : "visible"}
+                          animate="visible"
+                          variants={riskItemAnimationVariants}
+                        >
+                          <div
+                            className="rounded-lg p-2 transition-colors hover:bg-gray-50 cursor-pointer"
+                            onClick={() => openChildItemChat(item)}
+                          >
+                            <div className="flex items-start gap-2">
+                              <div
+                                className={`h-2 w-2 mt-1.5 rounded-full flex-shrink-0 ${
+                                  item.severity === "High" ? "bg-red-500" : "bg-yellow-400"
+                                }`}
+                              />
+                              <div className="flex-1">
+                                <div className="font-medium text-gray-900 text-xs">{item.title}</div>
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </>
+                  )}
+
+                  {/* Show initial message if no review run and no chats */}
+                  {!reviewRun && todoChats.length === 0 && (
+                    <div className="flex flex-col items-start py-6 px-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="text-sm font-semibold text-gray-900">Run a custom AI Risk Review</h3>
+                      </div>
+                      <p className="text-xs text-gray-500 mb-3">
+                        Genie will flag high and medium risks based on your priorities and concerns.
+                      </p>
+                      <Button
+                        variant="secondary"
+                        className="bg-[#7C3AED] text-white hover:bg-[#6D28D9] text-xs h-7"
+                        onClick={handleRunReview}
+                      >
+                        Review document
+                      </Button>
+                    </div>
+                  )}
                 </>
               ) : currentTab === "done" ? (
                 <>
@@ -1366,24 +1460,7 @@ export default function ContractReview() {
                     </>
                   )}
                 </>
-              ) : (
-                // Show initial message before running review
-                <div className="flex flex-col items-start py-6 px-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="text-sm font-semibold text-gray-900">Run a custom AI Risk Review</h3>
-                  </div>
-                  <p className="text-xs text-gray-500 mb-3">
-                    Genie will flag high and medium risks based on your priorities and concerns.
-                  </p>
-                  <Button
-                    variant="secondary"
-                    className="bg-[#7C3AED] text-white hover:bg-[#6D28D9] text-xs h-7"
-                    onClick={handleRunReview}
-                  >
-                    Review document
-                  </Button>
-                </div>
-              )}
+              ) : null}
             </div>
           </div>
 
@@ -1512,14 +1589,16 @@ export default function ContractReview() {
             <button
               className="w-8 h-8 bg-[#7C3AED] text-white rounded-full flex items-center justify-center hover:bg-[#6D28D9]"
               onClick={() => {
-                setActiveChat({
+                const newChat = {
                   id: Date.now().toString(),
                   title: "New chat",
                   messages: [],
                   createdAt: new Date(),
-                })
+                }
+                setTodoChats(prev => [...prev, newChat])
+                setActiveChat(newChat)
                 setShowBottomPanel(false)
-                setCurrentTab("done")
+                setCurrentTab("todo")
               }}
               aria-label="New Chat"
             >
