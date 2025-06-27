@@ -173,8 +173,8 @@ export default function ContractReview() {
       (item) => item.severity === "Medium" && !resolvedItems.includes(item.title),
     ).length
 
-    // Add a summary message to the active chat instead of closing it
-    if (activeChat) {
+    // Add a summary message to the active chat and save it to history
+    if (activeChat && (activeChat.title === "Run AI Review" || activeChat.title === "Re-Run Review")) {
       setActiveChat((prev) => {
         if (!prev) return null
 
@@ -187,23 +187,25 @@ export default function ContractReview() {
           return prev // Return unchanged if completion message already exists
         }
 
-        return {
-          ...prev,
-          messages: [
-            ...prev.messages,
-            {
-              id: Date.now().toString(),
-              type: "ai",
-              content: `Thanks! We've completed your AI review.\n\nWe found ${highRiskCount} high risk ${highRiskCount === 1 ? "flag" : "flags"} and ${mediumRiskCount} medium risk ${mediumRiskCount === 1 ? "flag" : "flags"} in your document.\n\nYou can review them in the left panel.`,
-            },
-          ],
+        const completionMessage: Message = {
+          id: Date.now().toString(),
+          type: "ai",
+          content: `Thanks! We've completed your AI review.\n\nWe found ${highRiskCount} high risk ${highRiskCount === 1 ? "flag" : "flags"} and ${mediumRiskCount} medium risk ${mediumRiskCount === 1 ? "flag" : "flags"} in your document.\n\nYou can review them in the left panel.`,
         }
-      })
 
-      // Add to history if not already there
-      if (!addedChatIds.has(activeChat.id)) {
-        addChatToHistory(activeChat)
-      }
+        const completedChat: ChatThread = {
+          ...prev,
+          title: `AI Review - ${new Date().toLocaleString()}`, // Better title with timestamp
+          messages: [...prev.messages, completionMessage],
+        }
+
+        // Add to history now that the review is complete with all user inputs
+        if (!addedChatIds.has(prev.id)) {
+          addChatToHistory(completedChat)
+        }
+
+        return completedChat
+      })
     }
 
     // Trigger the animation for risk items
@@ -286,9 +288,7 @@ export default function ContractReview() {
         }
         setActiveChat(newChat)
 
-        // Add to history immediately
-        addChatToHistory(newChat)
-
+        // Don't add review chats to history immediately - wait until review is complete
         // Switch to the "done" tab to show history
         setCurrentTab("done")
       } else {
@@ -630,8 +630,9 @@ export default function ContractReview() {
       createdAt: new Date(),
     }
 
-    // If there's an active chat, save it to resolved chats
-    if (activeChat && !activeChat.fromHistory && !addedChatIds.has(activeChat.id)) {
+    // If there's an active chat that's NOT a review chat, save it to resolved chats
+    if (activeChat && !activeChat.fromHistory && !addedChatIds.has(activeChat.id) && 
+        activeChat.title !== "Run AI Review" && activeChat.title !== "Re-Run Review") {
       addChatToHistory(activeChat)
     }
 
